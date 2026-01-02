@@ -16,10 +16,7 @@ declare global {
 // - Coordinates mapped: progress (0-1) → screen pixels at render time
 
 import { WAVE_TYPE } from '@surf/core/src/state/waveModel.js';
-import {
-  getDepth,
-  createBathymetryCacheManager,
-} from '@surf/core/src/layers/01-bottom-depth/index.js';
+import { getDepth, createBathymetryCacheManager } from '@surf/core/src/layers/01-depth/index.js';
 import { getOceanBounds, calculateTravelDuration } from '@surf/core/src/render/coordinates.js';
 import {
   saveGameState,
@@ -47,7 +44,7 @@ import {
   updateEnergyField,
   injectWavePulse,
   renderEnergyField,
-} from '@surf/core/src/layers/03-energy-field/index.js';
+} from '@surf/core/src/layers/02-energy/index.js';
 import {
   FOAM_GRID_HEIGHT,
   FOAM_GRID_WIDTH,
@@ -222,10 +219,10 @@ function update(deltaTime) {
 
   // Update energy field (Plan 140) even when not rendered; rendering is toggled separately
   const { oceanBottom } = getOceanBounds(canvas.height, world.shoreHeight);
-  const energyTravelDuration = calculateTravelDuration(oceanBottom, world.swellSpeed) / 1000; // in seconds
   const getDepthForField = (normalizedX, normalizedY) =>
     getDepth(normalizedX, world.bathymetry, normalizedY);
-  updateEnergyField(world.energyField, getDepthForField, scaledDelta, energyTravelDuration, {
+  // Pass null for velocityField - will use fallback speed calculation from depth
+  updateEnergyField(world.energyField, null, getDepthForField, scaledDelta, {
     depthDampingCoefficient: toggles.depthDampingCoefficient ?? 1.5,
     depthDampingExponent: toggles.depthDampingExponent ?? 2.0,
   });

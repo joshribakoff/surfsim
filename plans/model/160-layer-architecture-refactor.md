@@ -1,5 +1,38 @@
 # Layer Architecture Refactor
 
+## Status: In Progress - Tuning Energy Dissipation
+
+| Layer | Model | Story | Notes |
+|-------|-------|-------|-------|
+| 01-depth | ✅ | ✅ | Consolidated to 1 story (slope + channel) |
+| 02-energy | ✅ | ⚠️ | Uses depth layer, shows refraction, but dissipates too fast |
+| 03-velocity | ✅ | ✅ | Story imports from model |
+| 04-height | ✅ | ✅ | Story imports from model |
+| 05-foam | ✅ | ✅ | Story imports from model |
+| contours | ✅ | ✅ | Moved to renderers/, has stories |
+
+**Current issue:** Energy dissipates too quickly in energy story (almost gone by t=2s).
+
+**Completed:**
+- Fixed energy transport bug (blending → discrete advection)
+- Separated damping from transport (coefficient now works correctly)
+- Consolidated 4 energy stories → 1 (one story per layer principle)
+- Consolidated 9 depth stories → 1 (slope + channel for lateral variation)
+- Energy story imports `getDepth` from depth layer (refraction visible at t=4s: `11211`)
+- Deleted dead swell code (`injectSwells`, `modulateSwells`, `DEFAULT_SWELLS`, `createSwellSource`)
+- Deleted `02-energy/shared.ts` (dead code)
+- 56 layer tests passing, 5 smoke tests passing
+
+**Next steps:**
+1. Tune energy damping coefficient (currently 1.5) - too aggressive
+2. Verify refraction is more visible after fixing dissipation
+3. Phase 5: Deprecate wave objects (needs working energy field first)
+
+**Future work (Phase 5.5):**
+- Clean up naming (matrix vs field terminology)
+
+---
+
 ## The Core Problem: Stories Have Inline Code
 
 **Stories should import shared models, not contain inline physics.**
@@ -8,18 +41,15 @@ When we found `Math.random()` in a story, we asked: "Why is there any code in th
 
 ### Current State of Layer Migration
 
-| Layers | Status | Issue |
-|--------|--------|-------|
-| 01-03 | Partially migrated | Have `model.ts` files, stories starting to use them |
-| 04-09 | Not migrated | Stories have inline `updateFn` implementations |
+| Layer | Status |
+|-------|--------|
+| 01-depth | ✅ Complete - static bathymetry |
+| 02-energy | ✅ Complete - discrete advection, one story |
+| 03-velocity | ✅ Complete - story imports from model |
+| 04-height | ✅ Complete - story imports from model |
+| 05-foam | ✅ Complete - story imports from model |
 
-**Layers 04-09 have inline code that:**
-- Duplicates production logic (but with different constants)
-- Deviates from production (fake/simplified physics)
-- Contains bugs like `Math.random()` that break determinism
-- Is NOT the code that runs in the actual game
-
-**The goal:** Every story should import from a shared model. The same code that runs in stories must run in the game. No inline physics in stories.
+**The goal:** One story per layer, importing from shared model. Same code runs in stories and game.
 
 ---
 
@@ -30,19 +60,16 @@ When we found `Math.random()` in a story, we asked: "Why is there any code in th
 3. **Velocity is hardcoded** - Energy propagation assumes "down" at constant speed
 4. **Game uses wave objects** - Production uses discrete `progressPerX[]` arrays, not the energy field
 
-## Current Layer Structure
+## Current Layer Structure (After Refactor)
 
-| # | Current Name | Issues |
-|---|--------------|--------|
-| 01 | bottom-depth | OK but verbose name |
-| 02 | bottom-damping | Should be a function, not a layer |
-| 03 | energy-field | Internal variable named `height` is confusing |
-| 04 | shoaling | Named after physics, stores nothing |
-| 05 | wave-breaking | Process, not state |
-| 06 | energy-transfer | Process, not state |
-| 07 | foam-grid | Has `Math.random()` bug |
-| 08 | foam-dispersion | Process, not state |
-| 09 | foam-contours | Renderer, not state |
+| # | Name | Purpose |
+|---|------|---------|
+| 01 | depth | Ocean floor depth (static bathymetry) |
+| 02 | energy | Wave energy field (discrete advection + damping) |
+| 03 | velocity | Propagation speed/direction from depth |
+| 04 | height | Surface elevation (shoaling from energy + depth) |
+| 05 | foam | Foam intensity (breaking, decay, spreading) |
+| - | contours | Renderer (marching squares on foam) |
 
 ---
 
@@ -305,3 +332,223 @@ packages/core/src/layers/
   06-energy-transfer/  (merged into foam)
   08-foam-dispersion/  (merged into foam)
 ```
+
+---
+
+## Progress Log
+
+### 2026-01-01: Semi-Lagrangian Advection Fixed
+
+**Problem:** Energy was being created from thin air. Total energy increased from 5 to 17.5 over 5 seconds.
+
+**Root cause:** `sampleBilinear` clamped out-of-bounds positions to the grid edge. When row 0's source was outside the grid (srcY < 0), it sampled from itself instead of getting 0. This caused row 0 to act as an infinite source - it never lost energy while downstream rows pulled copies of it.
+
+**Fix:** Modified `sampleBilinear` to treat out-of-bounds corners as 0 (open boundary). Now when srcY = -0.01 (1% outside grid), the cell gets 99% of the edge value blended with 1% of 0. Energy drains gradually and correctly.
+
+**Results:**
+- Row 0 now drains: F → 4 → 2 → 1 → 0 over 5 seconds
+- Total energy decreases (damping works)
+- No more infinite source bug
+
+**Remaining issue:** Too much vertical spreading. Energy should stay in a tighter horizontal band as it propagates. Real waves compress/stack in shallow water, they don't diffuse vertically. This is due to bilinear interpolation smoothing.
+
+**Next steps:**
+1. Consolidate 9 depth stories → 1-2 with interesting lateral depth variation
+2. Add lateral spreading tests (waves bending around sandbars)
+3. Tune vertical spreading - may need sharpening or flux-limiting
+
+### 2026-01-01: Phase 1.5 Complete
+
+**Energy transport fixed:**
+- Removed broken "blending" that conflated transport with diffusion
+- Implemented discrete advection (sharp bands, no artificial spreading)
+- Separated damping as post-advection step (coefficient-controlled)
+- Consolidated 4 stories → 1 story ("Energy Propagation")
+- Deleted test-only `updateDeepWaterTranslation` function
+- Energy layer now correctly demonstrates: sharp bands translate, damping increases in shallow water
+
+### 2026-01-01: Phase 1 Complete
+
+**Directory restructuring done:**
+- `01-bottom-depth` → `01-depth` ✅
+- `03-energy-field` → `02-energy` ✅
+- Created `03-velocity/` with model ✅
+- `04-shoaling` stories → `04-height/` with model ✅
+- `05-wave-breaking`, `06-energy-transfer`, `07-foam-grid`, `08-foam-dispersion` → consolidated into `05-foam/` ✅
+- `09-foam-contours` → `renderers/contours/` ✅
+- Deleted `02-bottom-damping` (damping is in energy model) ✅
+
+**New models created:**
+- `03-velocity/model.ts`: `speed = sqrt(g × depth)`, stores (vx, vy) vectors
+- `04-height/model.ts`: shoaling formula `height = energy × (refDepth/depth)^0.25`
+- `05-foam/model.ts`: decay, diffusion, advection, spawning
+
+**Tests passing:** 552 unit tests, 5 smoke tests
+
+**Remaining work:** Stories still have inline `updateFn` - need to import from models.
+
+---
+
+## Phase 1.5: Fix Energy Transport (Critical Bug)
+
+**Problem discovered:** The energy model's `updateEnergyField` conflates three distinct physical processes:
+
+```javascript
+// Current broken code (line 113)
+height[idx] = height[idx] * (1 - blend) + height[aboveIdx] * blend;
+```
+
+This "blending" creates artificial diffusion. It mixes:
+- **Transport** (moving energy from A to B)
+- **Diffusion** (spreading energy to neighbors)
+- **Damping** (losing energy to friction)
+
+Result: Even with `dampingCoefficient=0`, energy spreads instead of translating as sharp bands.
+
+### The Physics
+
+1. **Transport (advection)**: Energy moves at velocity determined by depth
+   - Speed: `c = √(g × depth)` — slower in shallow water
+   - Direction: toward shore (future: refraction bends toward shallower water)
+   - Sharp bands should stay sharp during transport
+
+2. **Damping**: Energy lost to bottom friction
+   - `decay = exp(-coefficient × dt / depth^exponent)`
+   - With `coefficient=0`: no loss (decay=1)
+   - With `coefficient>0`: faster decay in shallow water
+
+3. **Lateral spreading**: NOT from transport algorithm
+   - Emerges from **refraction** in velocity field
+   - When depth varies laterally, waves bend toward shallower side
+   - This creates non-zero `vx` in velocity field
+   - Energy follows curved velocity vectors → natural spreading
+
+### The Fix
+
+**Separate advection from damping:**
+
+```javascript
+// 1. Discrete advection based on velocity
+field._accumY = (field._accumY || 0) + speed * dt;
+while (field._accumY >= rowHeight) {
+  field._accumY -= rowHeight;
+  shiftRowsDown(field);  // Move all energy down one row
+}
+
+// 2. Apply damping separately (only if coefficient > 0)
+if (dampingCoefficient > 0) {
+  for (each cell) {
+    const decay = Math.exp(-dampingCoefficient * dt / Math.pow(depth, exponent));
+    energy[idx] *= decay;
+  }
+}
+```
+
+**Key principles:**
+- Transport is discrete row shifting — no blending, no artificial spreading
+- Damping is a separate multiplier controlled by coefficient
+- Lateral spreading comes from velocity field (refraction), not from transport
+- Stories with `coefficient=0` should show sharp bands translating cleanly
+
+### Velocity-Energy Coupling
+
+Currently: Energy model ignores velocity field, assumes "straight down"
+Target: Energy model reads from velocity field for transport direction/speed
+
+```javascript
+function updateEnergyField(energyField, velocityField, depthFn, dt, options) {
+  // Get speed from velocity field (which gets it from depth)
+  // Advect energy along velocity vectors
+  // Apply damping based on coefficient
+}
+```
+
+### Tasks
+
+- [x] Delete blending code from `updateEnergyField`
+- [x] Implement discrete advection
+- [x] Separate damping into post-advection step
+- [x] Wire `02-energy` to import from `03-velocity`
+- [x] Consolidate energy stories (see below)
+
+### Story Consolidation
+
+**Problem:** Too many stories permuting parameters (no-damping, low-damping, high-damping).
+This creates clutter and slow tests without adding insight.
+
+**Solution:** 1-2 stories showing organic behavior with realistic bathymetry:
+
+1. **"Wave approaching sandbar"** - Realistic scenario:
+   - Bathymetry: slope + sandbar that varies in X
+   - Shows sharp bands translating toward shore
+   - Shows natural damping in shallow water (no coefficient permutations)
+   - Sandbar creates depth variation → different damping rates across X
+
+2. **"Energy drain"** (keep) - Demonstrates breaking/foam interaction
+
+Coefficient tuning can be exposed as a knob later, not as separate stories.
+
+---
+
+## Phase 5.5: Simplify Naming
+
+**Problem:** Too many terms for the same concepts cause confusion.
+
+### Current Confusing State
+- `matrix` and `field` used interchangeably
+- `matrixToField` function implies they're different
+- Property names vary: `height`, `intensity`, `data`, `values`
+- Layer names conflated with property names
+
+### Target Naming Convention
+
+1. **Layer name = what values represent**
+   - `01-depth`: depth values in meters
+   - `02-energy`: energy values
+   - `04-height`: surface height values
+   - `05-foam`: foam intensity values
+
+2. **Matrix = the data structure** (2D grid of numbers)
+   - Don't need separate "field" concept
+   - All layers store a matrix
+
+3. **Value = generic term** for numbers in the matrix
+   - Access via `matrix[row][col]` or `values[idx]`
+   - No domain-specific property names in shared utilities
+
+### Tasks
+- [ ] Rename `matrixToField` → simpler (or remove if unnecessary)
+- [ ] Standardize property access across test utils
+- [ ] Remove redundant abstractions
+
+---
+
+## Phase 6: Clean Model Boundaries
+
+**Problem identified:** Models contain ad-hoc helpers that don't belong.
+
+### Principle: Models = State + State Operations
+
+Each model should contain:
+- **State definition** (grid structure, initial values)
+- **State access** (getValueAt, interpolation)
+- **State mutation** (update functions that operate on the grid)
+
+Models should NOT contain:
+- Cross-layer logic (breaking detection uses height AND depth)
+- Conversion utilities (amplitudeToHeight)
+- Ad-hoc config accessors (getPeakX, getMinDepth)
+
+### Cleanup Tasks
+
+**01-depth/model.ts:**
+- [x] Remove `shouldBreak()` - already in foam model
+- [x] Remove `amplitudeToHeight()` - already in waveModel
+- [ ] Remove `getPeakX()`, `getMinDepth()` - just access config directly (low priority)
+
+**Cross-layer interactions:**
+Breaking detection (`height/depth > 0.78`) is emergent from two layers interacting. It belongs in:
+- The **update orchestrator** that has access to both height and depth
+- Or in **05-foam** which consumes this logic to spawn foam
+
+The goal is emergent behavior from layer interactions, not hardcoded discrete concepts scattered across files.
