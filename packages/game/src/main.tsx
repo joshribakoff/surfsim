@@ -45,6 +45,7 @@ import {
   injectWavePulse,
   renderEnergyField,
 } from '@surf/core/src/layers/02-energy/index.js';
+import { updateWorld } from '@surf/core/src/layers/world.js';
 import {
   FOAM_GRID_HEIGHT,
   FOAM_GRID_WIDTH,
@@ -226,6 +227,23 @@ function update(deltaTime) {
     depthDampingCoefficient: toggles.depthDampingCoefficient ?? 1.5,
     depthDampingExponent: toggles.depthDampingExponent ?? 2.0,
   });
+
+  // Update layer-based world orchestrator (Plan 160)
+  // Runs in parallel with legacy system for validation
+  updateWorld(
+    {
+      velocity: world.velocityField,
+      energy: world.energyField,
+      heightField: world.heightField,
+      foam: world.layerFoamField,
+    },
+    getDepthForField,
+    scaledDelta,
+    {
+      depthDampingCoefficient: toggles.depthDampingCoefficient ?? 1.5,
+      depthDampingExponent: toggles.depthDampingExponent ?? 2.0,
+    }
+  );
 
   // Update wave spawning via orchestrator (returns events + new state)
   const spawnResult = updateWaveSpawning(

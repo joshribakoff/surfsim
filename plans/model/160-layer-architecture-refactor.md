@@ -1,6 +1,6 @@
 # Layer Architecture Refactor
 
-## Status: In Progress - Wire Breaking Logic
+## Status: In Progress - Tune Energy Damping
 
 | Layer | Model | Story | Notes |
 |-------|-------|-------|-------|
@@ -10,19 +10,18 @@
 | 04-height | ✅ | ✅ | Shoaling from energy+depth |
 | 05-foam | ✅ | ✅ | Decay, diffusion, advection |
 | contours | ✅ | ✅ | Marching squares renderer |
-
-**Current issue:** Energy accumulates near shore instead of converting to foam.
-Breaking detection exists (`shouldBreak`) but isn't wired to drain energy → spawn foam.
+| **world** | ✅ | - | Orchestrator with breaking logic |
 
 **Completed:**
 - Phase 1 complete: consolidated 9 layers → 5 + renderer
 - Stories consolidated to 1 per layer
+- `updateWorld()` orchestrator implemented with breaking logic
+- Breaking detection wired: height/depth > 0.78 → drain energy → spawn foam
 - All tests passing (smoke, unit)
 
 **Next steps:**
-1. Wire breaking logic via orchestrator pattern (see below)
-2. Tune energy damping coefficient (currently too aggressive)
-3. Phase 5: Deprecate wave objects
+1. Tune energy damping coefficient (currently too aggressive)
+2. Phase 5: Deprecate wave objects
 
 **Future work (Phase 5.5):**
 - Clean up naming (matrix vs field terminology)
@@ -369,6 +368,40 @@ packages/core/src/layers/
 ---
 
 ## Progress Log
+
+### 2026-01-02: updateWorld Wired into Game Loop
+
+**Wired into:** `packages/game/src/main.tsx`
+
+Added layer fields to event store:
+- `velocityField` - wave propagation direction/speed
+- `heightField` - surface elevation (shoaling)
+- `layerFoamField` - foam intensity from layer system
+
+`updateWorld()` now runs in parallel with the legacy system for validation.
+Both systems update `energyField` (shared), but foam goes to separate grids:
+- Legacy: `foamGrid` (wave-object based)
+- New: `layerFoamField` (layer-based breaking)
+
+All tests pass (512 unit, 5 smoke).
+
+### 2026-01-02: updateWorld Orchestrator Implemented
+
+**Implemented:** `packages/core/src/layers/world.ts`
+
+The orchestrator coordinates all layer updates in correct order:
+1. Velocity from depth (03 reads 01)
+2. Energy propagation (02 reads 03)
+3. Height from energy+depth (04 reads 02, 01)
+4. **Breaking detection → drain energy → spawn foam** (cross-layer physics)
+5. Foam internal dynamics (decay, diffusion, advection)
+
+Breaking logic:
+- When `height / depth > 0.78` (breaker index), wave breaks
+- Drains energy proportional to excess height
+- Spawns foam from released energy
+
+Tests added: 5 tests covering propagation, breaking, foam spawning, no-break in deep water.
 
 ### 2026-01-02: Phase 1 Committed, Orchestrator Pattern Decided
 
