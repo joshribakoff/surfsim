@@ -1,6 +1,6 @@
 # Layer Architecture Refactor
 
-## Status: In Progress - Tune Energy Damping
+## Status: Phase 5 Complete - Deprecate Wave Objects
 
 | Layer | Model | Story | Notes |
 |-------|-------|-------|-------|
@@ -17,11 +17,13 @@
 - Stories consolidated to 1 per layer
 - `updateWorld()` orchestrator implemented with breaking logic
 - Breaking detection wired: height/depth > 0.78 → drain energy → spawn foam
+- Phase 5: `useLayerFoam` toggle added (press 'L' to switch)
+- Wave-object foam code marked @deprecated
 - All tests passing (smoke, unit)
 
 **Next steps:**
-1. Tune energy damping coefficient (currently too aggressive)
-2. Phase 5: Deprecate wave objects
+1. Tune energy damping coefficient
+2. Eventually remove deprecated wave-object code after validation
 
 **Future work (Phase 5.5):**
 - Clean up naming (matrix vs field terminology)
@@ -368,6 +370,19 @@ packages/core/src/layers/
 ---
 
 ## Progress Log
+
+### 2026-01-02: Phase 5 Complete - Deprecate Wave Objects
+
+**Added:**
+- `useLayerFoam` toggle in settings (hotkey 'L')
+- When enabled, foam rendering uses `layerFoamField` from layer system
+- When disabled, uses legacy `foamGrid` from wave-object system
+
+**Deprecated:**
+- `packages/core/src/state/foamModel.ts` - object-based foam entities
+- `updateFoamGridsFromWaves()` in update/index.ts - wave-object based breaking
+
+Both systems run in parallel. Toggle 'L' to switch which one renders.
 
 ### 2026-01-02: updateWorld Wired into Game Loop
 

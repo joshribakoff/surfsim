@@ -386,10 +386,13 @@ function draw() {
   );
 
   // Foam contour rendering using extracted config (Plan 170)
+  // Phase 5 (Plan 160): useLayerFoam switches to layer-based foam from updateWorld
   const foamGridWidth = world.foamGrid?.width || FOAM_GRID_WIDTH;
   const foamGridHeight = world.foamGrid?.height || FOAM_GRID_HEIGHT;
-  const foamGridData = world.foamGrid?.data;
-  const transferGridData = world.energyTransferGrid?.lastFrame;
+  const foamGridData = toggles.useLayerFoam
+    ? world.layerFoamField?.intensity
+    : world.foamGrid?.data;
+  const transferGridData = toggles.useLayerFoam ? null : world.energyTransferGrid?.lastFrame;
 
   renderFoamContours(
     ctx,

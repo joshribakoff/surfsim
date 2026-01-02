@@ -94,10 +94,15 @@ export function updateWaves(waves, gameTime, travelDuration, bufferDuration, bat
 }
 
 /**
+ * @deprecated Use updateWorld() from layers/world.ts instead (Plan 160 Phase 5)
+ *
  * Grid-based foam update:
  * - Detect breaking
  * - Drain energy into transfer grid
  * - Transfer energy into foam grid with decay/advection
+ *
+ * This wave-object approach is being replaced by layer-based updateWorld().
+ * Toggle `useLayerFoam` to switch to the new system.
  */
 export function updateFoamGridsFromWaves(waves, state) {
   const {

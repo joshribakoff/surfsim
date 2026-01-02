@@ -1,10 +1,17 @@
-// Foam Model - Independent whitewater/foam entities
-// Foam is deposited where waves break and stays in place (doesn't move with wave)
-//
-// Key insight: Foam is a TRAIL left behind by breaking waves
-// - Wave passes over shallow water → deposits foam at that (x, y)
-// - Foam stays where deposited, just fades over time
-// - Shape of foam naturally matches bathymetry contours
+/**
+ * @deprecated Use layers/05-foam/model.ts instead (Plan 160 Phase 5)
+ *
+ * Foam Model - Independent whitewater/foam entities
+ * Foam is deposited where waves break and stays in place (doesn't move with wave)
+ *
+ * Key insight: Foam is a TRAIL left behind by breaking waves
+ * - Wave passes over shallow water → deposits foam at that (x, y)
+ * - Foam stays where deposited, just fades over time
+ * - Shape of foam naturally matches bathymetry contours
+ *
+ * This object-based approach is being replaced by grid-based layer architecture.
+ * Toggle `useLayerFoam` to switch to the new system.
+ */
 
 let nextFoamId = 1;
 

@@ -29,6 +29,7 @@ export const SETTINGS_SCHEMA = {
 
   // Energy field
   showEnergyField: { type: 'boolean', default: false, hotkey: 'e' },
+  useLayerFoam: { type: 'boolean', default: false, hotkey: 'l' }, // Phase 5: layer-based foam
   depthDampingCoefficient: { type: 'number', default: 0.1 },
   depthDampingExponent: { type: 'number', default: 2.0 },
 

@@ -112,6 +112,7 @@ export function createInitialState() {
       showFoamOptionB: false,
       showFoamOptionC: false,
       showEnergyField: false,
+      useLayerFoam: false, // Phase 5: switch to layer-based foam (Plan 160)
       depthDampingCoefficient: 0.1,
       depthDampingExponent: 2.0,
     },
