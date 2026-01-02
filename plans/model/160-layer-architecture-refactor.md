@@ -1,32 +1,28 @@
 # Layer Architecture Refactor
 
-## Status: In Progress - Tuning Energy Dissipation
+## Status: In Progress - Wire Breaking Logic
 
 | Layer | Model | Story | Notes |
 |-------|-------|-------|-------|
-| 01-depth | ✅ | ✅ | Consolidated to 1 story (slope + channel) |
-| 02-energy | ✅ | ⚠️ | Uses depth layer, shows refraction, but dissipates too fast |
-| 03-velocity | ✅ | ✅ | Story imports from model |
-| 04-height | ✅ | ✅ | Story imports from model |
-| 05-foam | ✅ | ✅ | Story imports from model |
-| contours | ✅ | ✅ | Moved to renderers/, has stories |
+| 01-depth | ✅ | ✅ | Bathymetry (static) |
+| 02-energy | ✅ | ✅ | Propagation with damping |
+| 03-velocity | ✅ | ✅ | Speed from depth |
+| 04-height | ✅ | ✅ | Shoaling from energy+depth |
+| 05-foam | ✅ | ✅ | Decay, diffusion, advection |
+| contours | ✅ | ✅ | Marching squares renderer |
 
-**Current issue:** Energy dissipates too quickly in energy story (almost gone by t=2s).
+**Current issue:** Energy accumulates near shore instead of converting to foam.
+Breaking detection exists (`shouldBreak`) but isn't wired to drain energy → spawn foam.
 
 **Completed:**
-- Fixed energy transport bug (blending → discrete advection)
-- Separated damping from transport (coefficient now works correctly)
-- Consolidated 4 energy stories → 1 (one story per layer principle)
-- Consolidated 9 depth stories → 1 (slope + channel for lateral variation)
-- Energy story imports `getDepth` from depth layer (refraction visible at t=4s: `11211`)
-- Deleted dead swell code (`injectSwells`, `modulateSwells`, `DEFAULT_SWELLS`, `createSwellSource`)
-- Deleted `02-energy/shared.ts` (dead code)
-- 56 layer tests passing, 5 smoke tests passing
+- Phase 1 complete: consolidated 9 layers → 5 + renderer
+- Stories consolidated to 1 per layer
+- All tests passing (smoke, unit)
 
 **Next steps:**
-1. Tune energy damping coefficient (currently 1.5) - too aggressive
-2. Verify refraction is more visible after fixing dissipation
-3. Phase 5: Deprecate wave objects (needs working energy field first)
+1. Wire breaking logic via orchestrator pattern (see below)
+2. Tune energy damping coefficient (currently too aggressive)
+3. Phase 5: Deprecate wave objects
 
 **Future work (Phase 5.5):**
 - Clean up naming (matrix vs field terminology)
@@ -81,6 +77,43 @@ When we found `Math.random()` in a story, we asked: "Why is there any code in th
 2. **Processes are update functions** - Breaking detection, energy transfer, foam spreading are calculations, not layers
 3. **Renderers are separate** - Contour rendering operates on state but doesn't store state
 4. **Physics terms go in prose** - Stories explain shoaling, refraction; layer names describe data
+5. **Orchestrator owns cross-layer logic** - Breaking (height/depth → foam) lives in update orchestrator, not in layers
+
+### Layer Coupling: Orchestrator Pattern (Decision)
+
+**Problem:** How should layers interact? Energy breaking needs to drain energy AND spawn foam.
+
+**Options considered:**
+1. **Orchestrator** - Central `updateWorld()` wires layers together
+2. **Events** - Layers emit signals, listeners respond
+3. **Dependency injection** - Layers receive callbacks for cross-layer ops
+
+**Decision: Orchestrator pattern.**
+
+Layers stay pure and independently testable. Cross-layer physics is explicit in one place:
+
+```typescript
+// update/world.ts
+function updateWorld(state, dt) {
+  updateVelocity(state.velocity, getDepth);       // 03 reads 01
+  updateEnergy(state.energy, state.velocity, dt); // 02 reads 03
+  updateHeight(state.height, state.energy);       // 04 reads 02
+
+  // Breaking: cross-layer physics
+  for (each cell where shouldBreak(height, depth)) {
+    const released = drainEnergy(state.energy, x, y);
+    spawnFoam(state.foam, x, y, released);
+  }
+
+  updateFoam(state.foam, dt);  // 05 internal dynamics
+}
+```
+
+**Benefits:**
+- Layers don't know about each other (no imports between layers)
+- Physics flow is readable top-to-bottom
+- Easy to test: mock layers, call orchestrator, verify drain→spawn
+- Easy to extend: add new cross-layer effects in one place
 
 ### The Five State Layers
 
@@ -336,6 +369,30 @@ packages/core/src/layers/
 ---
 
 ## Progress Log
+
+### 2026-01-02: Phase 1 Committed, Orchestrator Pattern Decided
+
+**Committed:** `8617b2a` - consolidated 9 layers to 5 + renderer
+
+**Directory structure now:**
+```
+layers/
+├── 01-depth/       # Bathymetry (static)
+├── 02-energy/      # Wave energy propagation
+├── 03-velocity/    # Wave speed (derived from depth)
+├── 04-height/      # Surface elevation (derived from energy+depth)
+└── 05-foam/        # Foam intensity (decay, diffusion, advection)
+renderers/
+└── contours/       # Marching squares visualization
+```
+
+**Key decision:** Orchestrator pattern for layer coupling.
+- Layers don't import each other
+- `updateWorld()` orchestrates the update order and cross-layer physics
+- Breaking logic (energy → foam) will live in orchestrator
+
+**Current state:** Energy accumulates near shore because breaking isn't wired.
+Next: Implement `updateWorld()` with breaking detection.
 
 ### 2026-01-01: Semi-Lagrangian Advection Fixed
 
