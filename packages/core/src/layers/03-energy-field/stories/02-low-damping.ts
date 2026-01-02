@@ -5,7 +5,9 @@ import { TRAVEL_DURATION, shallowGradient } from '../shared';
 const story = defineStory({
   id: 'energy-field/low-damping',
   title: 'Low Damping',
-  prose: 'Low damping - subtle decay near shore.',
+  prose: `Coefficient: 0.05, Exponent: 2.0
+
+The exponent means drag increases exponentially as water gets shallower. Energy reaches shore with some amplitude remaining.`,
   // TODO: Add energy pulse layer and import from there instead of inline
   initialMatrix: asciiToMatrix(`
 FFFFF

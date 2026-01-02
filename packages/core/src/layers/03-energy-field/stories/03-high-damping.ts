@@ -5,7 +5,9 @@ import { TRAVEL_DURATION, shallowGradient } from '../shared';
 const story = defineStory({
   id: 'energy-field/high-damping',
   title: 'High Damping',
-  prose: 'High damping - energy mostly gone before reaching shore.',
+  prose: `Coefficient: 2.0, Exponent: 2.0
+
+40× stronger than low damping. Energy dissipates before reaching shore (bottom row stays zero).`,
   // TODO: Add energy pulse layer and import from there instead of inline
   initialMatrix: asciiToMatrix(`
 FFFFF

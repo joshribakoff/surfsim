@@ -4,7 +4,7 @@ import { updateDeepWaterTranslation, TRAVEL_DURATION } from '../shared';
 const story = defineStory({
   id: 'energy-field/no-damping',
   title: 'No Damping',
-  prose: 'Deep water - energy translates as a sharp horizontal line without spreading.',
+  prose: `Pure translation without damping. Energy moves as a sharp band without decay.`,
   // TODO: Add energy pulse layer and import from there instead of inline
   initialMatrix: asciiToMatrix(`
 FFFFF

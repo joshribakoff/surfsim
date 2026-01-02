@@ -88,7 +88,10 @@ function StoryRenderer({ story }: { story: Story | undefined }) {
   return (
     <div>
       <h1 style={{ color: colors.textBright, marginBottom: '0.5em' }}>{story.title}</h1>
-      <p style={{ color: colors.text, marginBottom: '1em' }}>{story.prose}</p>
+      {/* whiteSpace: pre-line allows basic formatting (newlines) without over-engineering a rich text system */}
+      <p style={{ color: colors.text, marginBottom: '1em', whiteSpace: 'pre-line' }}>
+        {story.prose}
+      </p>
       <ProgressionPlayer snapshots={story.progression.snapshots} autoPlay={true} loop={true} />
       <Filmstrip
         snapshots={story.progression.snapshots}
