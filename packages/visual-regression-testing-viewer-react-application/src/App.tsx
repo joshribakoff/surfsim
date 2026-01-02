@@ -11,6 +11,7 @@ import { Filmstrip, renderMatrixToCanvas } from './components/Filmstrip';
 import { ProgressionPlayer } from './components/ProgressionPlayer';
 import { energyToColor } from '@src/render/colorScales';
 import type { Story } from '@src/test-utils';
+import ErrorBoundary from './ErrorBoundary';
 
 // Dynamically import all story .ts files from layers (excluding visual.spec.ts, index.ts, shared.ts)
 // Use eager: false to allow dynamic imports, and accept any exports (not just default)
@@ -321,11 +322,15 @@ function AssembledPage({ node, colors }: AssembledPageProps) {
                 paddingLeft: '1.5em',
               }}
             >
-              <Suspense
-                fallback={<div style={{ color: colors.textMuted, padding: '1em' }}>Loading...</div>}
-              >
-                <LeafComponent />
-              </Suspense>
+              <ErrorBoundary storyId={leaf.id}>
+                <Suspense
+                  fallback={
+                    <div style={{ color: colors.textMuted, padding: '1em' }}>Loading...</div>
+                  }
+                >
+                  <LeafComponent />
+                </Suspense>
+              </ErrorBoundary>
             </section>
           );
         })}
@@ -1316,19 +1321,21 @@ export default function App() {
               color: colors.text,
             }}
           >
-            <Suspense
-              fallback={
-                <div style={{ color: colors.textMuted, padding: '2em', textAlign: 'center' }}>
-                  Loading...
-                </div>
-              }
-            >
-              {isBranchPage(currentPage) ? (
-                <AssembledPage node={findNode(navigationTree, currentPage)!} colors={colors} />
-              ) : (
-                PageComponent && <PageComponent />
-              )}
-            </Suspense>
+            <ErrorBoundary storyId={currentPage}>
+              <Suspense
+                fallback={
+                  <div style={{ color: colors.textMuted, padding: '2em', textAlign: 'center' }}>
+                    Loading...
+                  </div>
+                }
+              >
+                {isBranchPage(currentPage) ? (
+                  <AssembledPage node={findNode(navigationTree, currentPage)!} colors={colors} />
+                ) : (
+                  PageComponent && <PageComponent />
+                )}
+              </Suspense>
+            </ErrorBoundary>
           </main>
 
           {/* Footer with keyboard hints */}
@@ -1560,25 +1567,27 @@ export default function App() {
             color: colors.text,
           }}
         >
-          <Suspense
-            fallback={
-              <div
-                style={{
-                  color: colors.textMuted,
-                  padding: '2em',
-                  textAlign: 'center',
-                }}
-              >
-                Loading...
-              </div>
-            }
-          >
-            {isBranchPage(currentPage) ? (
-              <AssembledPage node={findNode(navigationTree, currentPage)!} colors={colors} />
-            ) : (
-              PageComponent && <PageComponent />
-            )}
-          </Suspense>
+          <ErrorBoundary storyId={currentPage}>
+            <Suspense
+              fallback={
+                <div
+                  style={{
+                    color: colors.textMuted,
+                    padding: '2em',
+                    textAlign: 'center',
+                  }}
+                >
+                  Loading...
+                </div>
+              }
+            >
+              {isBranchPage(currentPage) ? (
+                <AssembledPage node={findNode(navigationTree, currentPage)!} colors={colors} />
+              ) : (
+                PageComponent && <PageComponent />
+              )}
+            </Suspense>
+          </ErrorBoundary>
         </main>
 
         {/* Theme-aware styling for normal mode */}
