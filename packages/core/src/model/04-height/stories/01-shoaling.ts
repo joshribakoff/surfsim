@@ -8,12 +8,30 @@ import { defineStory, asciiToMatrix } from '../../../test-utils';
 import { updateEnergyField } from '../../02-energy/model';
 import { computeHeight } from '../model';
 
+// Story grid dimensions (from ASCII matrix)
+const STORY_WIDTH = 5;
+const STORY_HEIGHT = 6;
+
 // Depth: 10m at horizon → 0.5m at shore
-const shallowGradient = (_x: number, y: number) => 10 - y * 9.5;
 const REFERENCE_DEPTH = 10;
 
 // Physical grid height for stories (60m = 10m per row for 6 rows)
 const STORY_GRID_PHYSICAL_HEIGHT = 60;
+
+// Create depth field: shallow gradient from 10m to 0.5m
+function createDepthData(): Float32Array {
+  const data = new Float32Array(STORY_WIDTH * STORY_HEIGHT);
+  for (let y = 0; y < STORY_HEIGHT; y++) {
+    const normalizedY = y / (STORY_HEIGHT - 1);
+    const depth = 10 - normalizedY * 9.5;
+    for (let x = 0; x < STORY_WIDTH; x++) {
+      data[y * STORY_WIDTH + x] = depth;
+    }
+  }
+  return data;
+}
+
+const depthData = createDepthData();
 
 /**
  * Update: energy propagates via energy model, height derived via height model.
@@ -38,22 +56,17 @@ function updateFn(field: any, dt: number): void {
   };
 
   // Step 1: Propagate energy (null velocity = fallback to depth-based speed)
-  updateEnergyField(energyField, null, shallowGradient, dt, {
+  updateEnergyField(energyField, null, depthData, dt, {
     depthDampingCoefficient: 0, // No damping to show pure shoaling
     depthDampingExponent: 2.0,
     gridPhysicalHeight: STORY_GRID_PHYSICAL_HEIGHT,
   });
 
   // Step 2: Derive height from energy + depth via shoaling (output to field.height)
-  for (let y = 0; y < gridHeight; y++) {
-    const normalizedY = y / (gridHeight - 1);
-    for (let x = 0; x < width; x++) {
-      const normalizedX = (x + 0.5) / width;
-      const idx = y * width + x;
-      const energy = field._energy[idx];
-      const depth = shallowGradient(normalizedX, normalizedY);
-      field.height[idx] = computeHeight(energy, depth, REFERENCE_DEPTH);
-    }
+  for (let i = 0; i < field.height.length; i++) {
+    const energy = field._energy[i];
+    const depth = depthData[i];
+    field.height[i] = computeHeight(energy, depth, REFERENCE_DEPTH);
   }
 }
 

@@ -5,6 +5,8 @@
 // Direction is initially straight down (toward shore).
 // Future: refraction bends waves toward shallower water.
 
+import { assertSameSize } from '../../state/bathymetryModel';
+
 const G = 9.81; // gravitational acceleration m/s²
 
 export const FIELD_WIDTH = 60;
@@ -43,24 +45,17 @@ export function getWaveSpeed(depth: number): number {
  * Direction is straight down (vx=0, vy=speed)
  *
  * @param velocityField - Velocity field to update (mutated)
- * @param getDepthFn - Function(normalizedX, normalizedY) returning depth in meters
+ * @param depthData - Depth values at each grid cell (same size as velocity field)
  */
-export function updateVelocityField(
-  velocityField: VelocityField,
-  getDepthFn: (x: number, y: number) => number
-): void {
+export function updateVelocityField(velocityField: VelocityField, depthData: Float32Array): void {
   const { vx, vy, width, gridHeight } = velocityField;
+  assertSameSize(vy, depthData, 'updateVelocityField');
 
   for (let y = 0; y < gridHeight; y++) {
-    const normalizedY = y / (gridHeight - 1);
     for (let x = 0; x < width; x++) {
-      const normalizedX = (x + 0.5) / width;
       const idx = y * width + x;
-
-      const depth = getDepthFn(normalizedX, normalizedY);
+      const depth = depthData[idx];
       const speed = getWaveSpeed(depth);
-
-      // Waves travel straight down (toward shore)
       vx[idx] = 0;
       vy[idx] = speed;
     }

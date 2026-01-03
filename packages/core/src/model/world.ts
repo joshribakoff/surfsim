@@ -10,6 +10,7 @@
 // 4. Breaking detection → drain energy → spawn foam
 // 5. Foam internal dynamics (decay, diffusion, advection)
 
+import { assertSameSize } from '../state/bathymetryModel';
 import { updateVelocityField, type VelocityField } from './03-velocity/model';
 import { updateEnergyField, drainEnergyAt } from './02-energy/model';
 import { updateHeightField, type HeightField } from './04-height/model';
@@ -47,30 +48,31 @@ export interface WorldConfig {
  * Update all layers in correct order with cross-layer physics
  *
  * @param state - World state containing all layer fields
- * @param getDepthFn - Function(normalizedX, normalizedY) returning depth in meters
+ * @param depthData - Depth values at each grid cell (same size as other fields)
  * @param dt - Time step in seconds
  * @param config - Optional configuration
  */
 export function updateWorld(
   state: WorldState,
-  getDepthFn: (x: number, y: number) => number,
+  depthData: Float32Array,
   dt: number,
   config: WorldConfig = {}
 ): void {
   const { referenceDepth = 30, foam: foamConfig = {} } = config;
   const { velocity, energy, heightField, foam } = state;
+  assertSameSize(heightField.height, depthData, 'updateWorld');
 
   // 1. Update velocity from depth (03 reads 01)
-  updateVelocityField(velocity, getDepthFn);
+  updateVelocityField(velocity, depthData);
 
   // 2. Update energy propagation (02 reads 03)
-  updateEnergyField(energy, velocity, getDepthFn, dt, {
+  updateEnergyField(energy, velocity, depthData, dt, {
     depthDampingCoefficient: config.depthDampingCoefficient,
     depthDampingExponent: config.depthDampingExponent,
   });
 
   // 3. Update height from energy+depth (04 reads 02, 01)
-  updateHeightField(heightField, energy.height, getDepthFn, referenceDepth);
+  updateHeightField(heightField, energy.height, depthData, referenceDepth);
 
   // 4. Breaking detection → drain energy → spawn foam
   const breakerIndex = foamConfig.breakerIndex ?? DEFAULT_FOAM_CONFIG.breakerIndex;
@@ -84,7 +86,7 @@ export function updateWorld(
       const idx = y * width + x;
 
       const height = heightField.height[idx];
-      const depth = getDepthFn(normalizedX, normalizedY);
+      const depth = depthData[idx];
 
       if (shouldBreak(height, depth, breakerIndex)) {
         // Drain energy proportional to excess height

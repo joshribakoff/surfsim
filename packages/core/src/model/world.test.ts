@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { updateWorld, type WorldState } from './world';
-import { createVelocityField } from './03-velocity/model';
+import { createVelocityField, FIELD_WIDTH, FIELD_HEIGHT } from './03-velocity/model';
 import { createEnergyField } from './02-energy/model';
 import { createHeightField } from './04-height/model';
 import { createFoamField } from './05-foam/model';
@@ -14,17 +14,24 @@ function createWorldState(): WorldState {
   };
 }
 
+/** Create a Float32Array of constant depth values */
+function createConstantDepth(depth: number): Float32Array {
+  const data = new Float32Array(FIELD_WIDTH * FIELD_HEIGHT);
+  data.fill(depth);
+  return data;
+}
+
 describe('updateWorld', () => {
   it('updates all layers without crashing', () => {
     const state = createWorldState();
-    const getDepth = () => 10; // 10m everywhere
+    const depthData = createConstantDepth(10); // 10m everywhere
 
-    expect(() => updateWorld(state, getDepth, 0.016)).not.toThrow();
+    expect(() => updateWorld(state, depthData, 0.016)).not.toThrow();
   });
 
   it('propagates energy toward shore', () => {
     const state = createWorldState();
-    const getDepth = () => 10;
+    const depthData = createConstantDepth(10);
 
     // Inject energy at horizon (row 0)
     for (let x = 0; x < state.energy.width; x++) {
@@ -35,7 +42,7 @@ describe('updateWorld', () => {
     // Grid is 200m tall with 40 rows = 5m per row
     // So we need ~2s for energy to reach row 4
     for (let i = 0; i < 30; i++) {
-      updateWorld(state, getDepth, 0.1);
+      updateWorld(state, depthData, 0.1);
     }
 
     // Energy should have propagated to row 4 (a few rows from horizon)
@@ -51,7 +58,7 @@ describe('updateWorld', () => {
   it('drains energy and spawns foam when breaking', () => {
     const state = createWorldState();
     // Shallow water (1m) causes breaking when height > 0.78m
-    const getDepth = () => 1;
+    const depthData = createConstantDepth(1);
 
     // Set high energy that will cause breaking
     const midRow = Math.floor(state.energy.gridHeight / 2);
@@ -61,7 +68,7 @@ describe('updateWorld', () => {
 
     const initialEnergy = state.energy.height[midRow * state.energy.width];
 
-    updateWorld(state, getDepth, 0.1);
+    updateWorld(state, depthData, 0.1);
 
     // Energy should be drained
     const finalEnergy = state.energy.height[midRow * state.energy.width];
@@ -78,7 +85,7 @@ describe('updateWorld', () => {
   it('does not spawn foam in deep water', () => {
     const state = createWorldState();
     // Deep water (30m) - waves don't break
-    const getDepth = () => 30;
+    const depthData = createConstantDepth(30);
 
     // Set moderate energy
     const midRow = Math.floor(state.energy.gridHeight / 2);
@@ -86,7 +93,7 @@ describe('updateWorld', () => {
       state.energy.height[midRow * state.energy.width + x] = 1.0;
     }
 
-    updateWorld(state, getDepth, 0.1);
+    updateWorld(state, depthData, 0.1);
 
     // No foam should spawn (height/depth = 1/30 < 0.78)
     let totalFoam = 0;
@@ -98,7 +105,7 @@ describe('updateWorld', () => {
 
   it('decays foam over time', () => {
     const state = createWorldState();
-    const getDepth = () => 10;
+    const depthData = createConstantDepth(10);
 
     // Manually add foam
     const midIdx = Math.floor(state.foam.intensity.length / 2);
@@ -108,7 +115,7 @@ describe('updateWorld', () => {
 
     // Run updates
     for (let i = 0; i < 5; i++) {
-      updateWorld(state, getDepth, 0.1);
+      updateWorld(state, depthData, 0.1);
     }
 
     // Foam should have decayed

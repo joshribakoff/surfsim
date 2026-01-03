@@ -9,6 +9,13 @@ import {
   FIELD_HEIGHT,
 } from './model.js';
 
+/** Create a Float32Array of constant depth values */
+function createConstantDepth(depth: number): Float32Array {
+  const data = new Float32Array(FIELD_WIDTH * FIELD_HEIGHT);
+  data.fill(depth);
+  return data;
+}
+
 describe('energyFieldModel', () => {
   describe('advection displacement calculation', () => {
     it('calculates correct displacement for one frame', () => {
@@ -21,10 +28,10 @@ describe('energyFieldModel', () => {
       const field = createEnergyField();
       field.height[0] = 1.0; // Energy at first cell of row 0
 
-      const getDepth = () => 10; // Constant 10m depth
+      const depthData = createConstantDepth(10); // Constant 10m depth
 
       // Single frame update
-      updateEnergyField(field, null, getDepth, 1 / 60, {
+      updateEnergyField(field, null, depthData, 1 / 60, {
         depthDampingCoefficient: 0,
         gridPhysicalHeight: 200, // Default game grid
       });
@@ -58,7 +65,7 @@ describe('energyFieldModel', () => {
   describe('updateEnergyField', () => {
     it('propagates energy from horizon toward shore', () => {
       const field = createEnergyField();
-      const getDepth = () => 10;
+      const depthData = createConstantDepth(10);
 
       // Inject a pulse at horizon
       for (let x = 0; x < field.width; x++) {
@@ -70,7 +77,7 @@ describe('energyFieldModel', () => {
       // With 200m grid / 40 rows = 5m per row
       // Need ~1 second to shift 2 rows
       for (let i = 0; i < 60; i++) {
-        updateEnergyField(field, null, getDepth, 1 / 60, {
+        updateEnergyField(field, null, depthData, 1 / 60, {
           depthDampingCoefficient: 0,
         });
       }
@@ -86,17 +93,16 @@ describe('energyFieldModel', () => {
 
     it('waves propagate uniformly across x (no refraction currently)', () => {
       const field = createEnergyField();
+      const depthData = createConstantDepth(10);
 
       // Inject pulse at horizon
       for (let x = 0; x < field.width; x++) {
         field.height[x] = 1.0;
       }
 
-      const getDepth = () => 10;
-
       // Run updates to propagate to row 10
       for (let i = 0; i < 300; i++) {
-        updateEnergyField(field, null, getDepth, 0.1, {
+        updateEnergyField(field, null, depthData, 0.1, {
           depthDampingCoefficient: 0,
         });
       }
@@ -231,7 +237,7 @@ describe('energyFieldModel', () => {
   describe('Energy drains after wave breaking (Plan 141 integration)', () => {
     it('wave energy decreases when drained at sandbar position', () => {
       const field = createEnergyField();
-      const getDepth = () => 10;
+      const depthData = createConstantDepth(10);
 
       // Inject a pulse at horizon
       injectWavePulse(field, 1.0);
@@ -241,7 +247,7 @@ describe('energyFieldModel', () => {
       // Run several seconds to ensure propagation
       for (let i = 0; i < 180; i++) {
         // 3 seconds at 60fps
-        updateEnergyField(field, null, getDepth, 1 / 60, {
+        updateEnergyField(field, null, depthData, 1 / 60, {
           depthDampingCoefficient: 0,
         });
       }

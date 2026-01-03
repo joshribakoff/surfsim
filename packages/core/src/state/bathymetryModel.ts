@@ -47,13 +47,49 @@ export const DEFAULT_BATHYMETRY = {
 };
 
 /**
- * Get water depth at a given position (2D)
- * Depth depends on both progress (Y) and lateral position (X)
+ * Assert two Float32Arrays have the same length
+ */
+export function assertSameSize(a: Float32Array, b: Float32Array, context: string): void {
+  if (a.length !== b.length) {
+    throw new Error(`Layer size mismatch in ${context}: ${a.length} vs ${b.length}`);
+  }
+}
+
+/**
+ * Create a depth field (Float32Array) from bathymetry config
+ * Computes depth at each grid cell ONCE, for direct indexing by model functions.
  *
- * @param {number} normalizedX - X position normalized 0-1 (0=left, 1=right)
- * @param {object} config - Bathymetry configuration
- * @param {number} progress - Wave progress 0-1 (0=horizon, 1=shore)
- * @returns {number} Water depth in meters
+ * @param width - Grid width
+ * @param gridHeight - Grid height
+ * @param config - Bathymetry configuration
+ * @returns Float32Array of depth values, indexed as [y * width + x]
+ */
+export function createDepthField(
+  width: number,
+  gridHeight: number,
+  config = DEFAULT_BATHYMETRY
+): Float32Array {
+  const size = width * gridHeight;
+  const depthData = new Float32Array(size);
+
+  for (let y = 0; y < gridHeight; y++) {
+    const normalizedY = y / (gridHeight - 1);
+    for (let x = 0; x < width; x++) {
+      const normalizedX = (x + 0.5) / width;
+      const idx = y * width + x;
+      depthData[idx] = getDepth(normalizedX, config, normalizedY);
+    }
+  }
+
+  return depthData;
+}
+
+/**
+ * Get water depth at a given position (2D)
+ * @param normalizedX - X position normalized 0-1 (0=left, 1=right)
+ * @param config - Bathymetry configuration
+ * @param progress - Wave progress 0-1 (0=horizon, 1=shore)
+ * @returns Water depth in meters
  */
 export function getDepth(normalizedX, config = DEFAULT_BATHYMETRY, progress = 0) {
   const MIN_DEPTH = 0.01; // small epsilon to allow near-zero depth toward shore

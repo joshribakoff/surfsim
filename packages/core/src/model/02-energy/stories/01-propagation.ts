@@ -3,15 +3,21 @@ import { updateEnergyField } from '../model';
 import { updateVelocityField } from '../../03-velocity/model';
 import { PROGRESSION_BATHYMETRY } from '../../01-depth/stories/01-bathymetry';
 
-// Read depth directly from Layer 1's matrix (0-1 scaled to 0-30m)
+// Create depth field from Layer 1's bathymetry matrix (0-1 scaled to 0-30m)
 const depthMatrix = PROGRESSION_BATHYMETRY.snapshots[0].matrix;
 const MAX_DEPTH = 30;
 
-function getDepth(normalizedX: number, normalizedY: number): number {
-  const col = Math.min(GRID_WIDTH - 1, Math.floor(normalizedX * GRID_WIDTH));
-  const row = Math.min(GRID_HEIGHT - 1, Math.floor(normalizedY * GRID_HEIGHT));
-  return depthMatrix[row][col] * MAX_DEPTH;
+function createDepthData(): Float32Array {
+  const data = new Float32Array(GRID_WIDTH * GRID_HEIGHT);
+  for (let row = 0; row < GRID_HEIGHT; row++) {
+    for (let col = 0; col < GRID_WIDTH; col++) {
+      data[row * GRID_WIDTH + col] = depthMatrix[row][col] * MAX_DEPTH;
+    }
+  }
+  return data;
 }
+
+const depthData = createDepthData();
 
 function createVelocityField(width: number, height: number) {
   const size = width * height;
@@ -56,10 +62,10 @@ FFFFFFFF
   updateFn: (field, dt) => {
     if (!field._velocityField) {
       field._velocityField = createVelocityField(field.width, field.gridHeight);
-      updateVelocityField(field._velocityField, getDepth);
+      updateVelocityField(field._velocityField, depthData);
     }
 
-    updateEnergyField(field, field._velocityField, getDepth, dt, {
+    updateEnergyField(field, field._velocityField, depthData, dt, {
       depthDampingCoefficient: 1.5,
       depthDampingExponent: 2.0,
       gridPhysicalHeight: STORY_GRID_PHYSICAL_HEIGHT,

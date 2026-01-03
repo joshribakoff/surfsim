@@ -1,6 +1,6 @@
 # Plan 170: Remove Coordinate Normalization
 
-**Status**: Proposed
+**Status**: Implemented
 
 ## Problem
 

@@ -4,7 +4,8 @@
 // The field stores height values at each grid point. Waves propagate via
 // the wave equation with depth-dependent speed from bathymetry.
 
-import type { VelocityField } from '../03-velocity/model';
+import { assertSameSize } from '../../state/bathymetryModel';
+import { getWaveSpeed, type VelocityField } from '../03-velocity/model';
 
 // Grid resolution - balance between accuracy and performance
 export const FIELD_WIDTH = 60; // X resolution (across screen)
@@ -35,23 +36,20 @@ export function createEnergyField() {
  *
  * @param field - Energy field to update (mutated)
  * @param velocityField - Velocity field with (vx, vy) at each cell
- * @param getDepthFn - Function(normalizedX, normalizedY) returning depth in meters
+ * @param depthData - Depth values at each grid cell (same size as energy field)
  * @param dt - Time step in seconds
  * @param options - { depthDampingCoefficient, depthDampingExponent, gridPhysicalHeight }
  */
 export function updateEnergyField(
   field,
   velocityField: VelocityField | null,
-  getDepthFn,
+  depthData: Float32Array,
   dt,
   options: Record<string, any> = {}
 ) {
   const { height, width, gridHeight } = field;
-  const {
-    depthDampingCoefficient = 1.5,
-    depthDampingExponent = 2.0,
-    gridPhysicalHeight = GRID_PHYSICAL_HEIGHT,
-  } = options;
+  assertSameSize(height, depthData, 'updateEnergyField');
+  const { depthDampingCoefficient = 1.5, gridPhysicalHeight = GRID_PHYSICAL_HEIGHT } = options;
 
   // Cell size in meters
   const cellHeight = gridPhysicalHeight / (gridHeight - 1);
@@ -61,11 +59,7 @@ export function updateEnergyField(
 
   // Calculate transfers from each cell
   for (let y = 0; y < gridHeight - 1; y++) {
-    // Don't transfer from last row (shore)
-    const normalizedY = y / (gridHeight - 1);
-
     for (let x = 0; x < width; x++) {
-      const normalizedX = (x + 0.5) / width;
       const idx = y * width + x;
 
       // Get velocity at this cell (in meters/second)
@@ -73,8 +67,8 @@ export function updateEnergyField(
       if (velocityField) {
         vy = velocityField.vy[idx];
       } else {
-        const depth = getDepthFn(normalizedX, normalizedY);
-        vy = Math.sqrt(9.81 * Math.max(0.01, depth));
+        const depth = depthData[idx];
+        vy = getWaveSpeed(depth);
       }
 
       // What fraction of energy transfers to next cell this frame?
@@ -93,16 +87,11 @@ export function updateEnergyField(
   // Energy loss is proportional to distance traveled AND inversely proportional to depth
   // Shallow water = more bottom friction = more energy lost per meter traveled
   for (let y = 0; y < gridHeight - 1; y++) {
-    const normalizedY = y / (gridHeight - 1);
-
     for (let x = 0; x < width; x++) {
-      const normalizedX = (x + 0.5) / width;
-      const idx = y * width + x;
       const destIdx = (y + 1) * width + x;
 
       // Get depth at destination (where energy is arriving)
-      const destNormalizedY = (y + 1) / (gridHeight - 1);
-      const destDepth = Math.max(0.01, getDepthFn(normalizedX, destNormalizedY));
+      const destDepth = Math.max(0.01, depthData[destIdx]);
 
       // Energy loss increases as depth decreases (more bottom friction)
       // frictionFactor: 1.0 at depth=10m, higher in shallower water

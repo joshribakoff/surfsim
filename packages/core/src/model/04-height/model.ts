@@ -6,6 +6,8 @@
 // As waves slow down in shallow water, they grow taller.
 // This is the physical basis of wave breaking.
 
+import { assertSameSize } from '../../state/bathymetryModel';
+
 export const FIELD_WIDTH = 60;
 export const FIELD_HEIGHT = 40;
 
@@ -43,30 +45,27 @@ export function computeHeight(energy: number, depth: number, referenceDepth = 30
 }
 
 /**
- * Update height field from energy field and depth function
+ * Update height field from energy field and depth data
  *
  * @param heightField - Height field to update (mutated)
  * @param energyData - Energy values (Float32Array)
- * @param getDepthFn - Function(normalizedX, normalizedY) returning depth
+ * @param depthData - Depth values at each grid cell (same size)
  * @param referenceDepth - Deep water reference depth
  */
 export function updateHeightField(
   heightField: HeightField,
   energyData: Float32Array,
-  getDepthFn: (x: number, y: number) => number,
+  depthData: Float32Array,
   referenceDepth = 30
 ): void {
   const { height, width, gridHeight } = heightField;
+  assertSameSize(height, depthData, 'updateHeightField');
+  assertSameSize(height, energyData, 'updateHeightField');
 
   for (let y = 0; y < gridHeight; y++) {
-    const normalizedY = y / (gridHeight - 1);
     for (let x = 0; x < width; x++) {
-      const normalizedX = (x + 0.5) / width;
       const idx = y * width + x;
-
-      const energy = energyData[idx];
-      const depth = getDepthFn(normalizedX, normalizedY);
-      height[idx] = computeHeight(energy, depth, referenceDepth);
+      height[idx] = computeHeight(energyData[idx], depthData[idx], referenceDepth);
     }
   }
 }

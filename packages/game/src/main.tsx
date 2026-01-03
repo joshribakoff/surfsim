@@ -16,7 +16,8 @@ declare global {
 // - Coordinates mapped: progress (0-1) → screen pixels at render time
 
 import { WAVE_TYPE } from '@surf/core/src/state/waveModel.js';
-import { getDepth, createBathymetryCacheManager } from '@surf/core/src/model/01-depth/index.js';
+import { createBathymetryCacheManager } from '@surf/core/src/model/01-depth/index.js';
+import { createDepthField } from '@surf/core/src/state/bathymetryModel.js';
 import { getOceanBounds, calculateTravelDuration } from '@surf/core/src/render/coordinates.js';
 import {
   saveGameState,
@@ -67,6 +68,32 @@ const ctx = canvas.getContext('2d');
 
 // Bathymetry cache manager (Plan 130) - handles caching + invalidation
 const bathymetryCache = createBathymetryCacheManager();
+
+// Depth field cache (Plan 170) - pre-computed depth values for model functions
+let cachedDepthField: Float32Array | null = null;
+let cachedBathymetryRef: typeof world.bathymetry | null = null;
+let cachedFieldWidth = 0;
+let cachedFieldHeight = 0;
+
+function getDepthField(
+  bathymetry: typeof world.bathymetry,
+  width: number,
+  gridHeight: number
+): Float32Array {
+  if (
+    cachedDepthField &&
+    cachedBathymetryRef === bathymetry &&
+    cachedFieldWidth === width &&
+    cachedFieldHeight === gridHeight
+  ) {
+    return cachedDepthField;
+  }
+  cachedDepthField = createDepthField(width, gridHeight, bathymetry);
+  cachedBathymetryRef = bathymetry;
+  cachedFieldWidth = width;
+  cachedFieldHeight = gridHeight;
+  return cachedDepthField;
+}
 
 // Make canvas fill the screen
 function resize() {
@@ -220,10 +247,10 @@ function update(deltaTime) {
 
   // Update energy field (Plan 140) even when not rendered; rendering is toggled separately
   const { oceanBottom } = getOceanBounds(canvas.height, world.shoreHeight);
-  const getDepthForField = (normalizedX, normalizedY) =>
-    getDepth(normalizedX, world.bathymetry, normalizedY);
+  const { width, gridHeight } = world.energyField;
+  const depthData = getDepthField(world.bathymetry, width, gridHeight);
   // Pass null for velocityField - will use fallback speed calculation from depth
-  updateEnergyField(world.energyField, null, getDepthForField, scaledDelta, {
+  updateEnergyField(world.energyField, null, depthData, scaledDelta, {
     depthDampingCoefficient: toggles.depthDampingCoefficient ?? 1.5,
     depthDampingExponent: toggles.depthDampingExponent ?? 2.0,
   });
@@ -237,7 +264,7 @@ function update(deltaTime) {
       heightField: world.heightField,
       foam: world.layerFoamField,
     },
-    getDepthForField,
+    depthData,
     scaledDelta,
     {
       depthDampingCoefficient: toggles.depthDampingCoefficient ?? 1.5,
