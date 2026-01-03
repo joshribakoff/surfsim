@@ -11,16 +11,16 @@ describe('Bathymetry Progression', () => {
   it('beach with channel shows lateral depth variation', () => {
     const matrix = PROGRESSION_BATHYMETRY.snapshots[0].matrix;
     expect(matrixToAscii(matrix)).toMatchInlineSnapshot(`
-      "FFDFFFDF
-      EECFFFCE
-      DDBFFFBD
-      CCAFFFAC
-      BB4EEE4B
-      442CCC24
-      331BBB13
-      22-AAA-2
-      11-444-1
-      ---333--"
+      "FFFFFFFF
+      EEFFFFEE
+      DDFFFFDD
+      CCFFFFCC
+      BBDDDDBB
+      44CCCC44
+      33AAAA33
+      22333322
+      11222211
+      --------"
     `);
   });
 

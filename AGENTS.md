@@ -185,6 +185,7 @@ Custom commands for common workflows (`.claude/commands/`):
 | `/worktree` | Manage git worktrees | `/worktree create shoaling` |
 | `/branch` | Create feature branch via GitHub MCP | `/branch shoaling-physics` |
 | `/pr` | Create pull request via GitHub MCP | `/pr` |
+| `/story` | Edit story ASCII diagrams collaboratively | `/story 01-depth` |
 
 ## Skills
 
@@ -200,6 +201,7 @@ Skills are auto-applied by Claude based on context (`.claude/skills/`):
 | `performance` | "slow", "fps", "lag", optimization discussions |
 | `refactoring` | "duplicate", "refactor", "DRY", "extract", "consolidate" |
 | `debugging` | "bug", "broken", "not working", "glitch", "flickering" |
+| `story-editor` | Editing `*/stories/*.ts`, `/story` command |
 
 ## Code Quality Analysis
 

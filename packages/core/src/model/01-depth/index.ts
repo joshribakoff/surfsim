@@ -8,4 +8,4 @@ export { DEFAULT_BATHYMETRY, getDepth, getMinDepth, getPeakX } from './model';
 export { buildBathymetryCache, createBathymetryCacheManager, depthToColor } from './renderer';
 
 // Story exports
-export { PROGRESSION_BATHYMETRY, getDepth as getBathymetryDepth } from './stories/01-bathymetry';
+export { PROGRESSION_BATHYMETRY } from './stories/01-bathymetry';
