@@ -4,6 +4,12 @@ Guidelines for AI agents working on this codebase.
 
 ## Core Principles
 
+### Before Running Tests - STOP
+ALWAYS invoke the `testing` skill BEFORE running ANY test-related commands.
+- **Trigger phrases**: "run tests", "status of tests", "check tests", "make sure tests pass"
+- **Commands**: `npm run lint`, `npm test`, `npx vitest`, `npx playwright`, etc.
+- **Why**: The skill clarifies which tests the user wants and prevents wasted effort.
+
 ### Tight Feedback Loops
 Always prefer the fastest feedback mechanism available:
 1. **Lint first** (`npm run lint`) - catches syntax/import errors in ~1 second
@@ -188,7 +194,7 @@ Skills are auto-applied by Claude based on context (`.claude/skills/`):
 |-------|----------------------|
 | `wave-physics` | Editing simulation code, discussing wave behavior |
 | `plan-management` | Creating/organizing plans, documentation |
-| `testing` | Writing tests, editing `*.test.js` or `tests/` |
+| `testing` | **MUST invoke before ANY test commands** |
 | `visualization-algorithms` | Editing `src/render/`, graphics algorithms |
 | `react-ui` | JSX files, React component work |
 | `performance` | "slow", "fps", "lag", optimization discussions |

@@ -1,9 +1,32 @@
 ---
 name: testing
-description: Testing strategy orchestrator. Use when discussing test types, test order, or choosing how to test something. Auto-apply for general testing questions.
+description: STOP. BEFORE running ANY test commands (npm run lint, npm test, npx vitest, npx playwright, etc.), you MUST invoke this skill first. Trigger phrases requiring this skill: "run tests", "status of tests", "check tests", "make sure tests pass".
 ---
 
 # Testing Skill (Orchestrator)
+
+## CRITICAL: Clarify Ambiguous Test Requests
+
+When the user asks to "run the tests", "check test status", "run all tests", or similar **without specifying which tests**, you MUST clarify:
+
+- **Unit tests only?** (`npm run test:unit`)
+- **Visual tests only?** (`npm run test:visual:headless`)
+- **All tests?** (unit + visual + smoke)
+
+Do NOT assume. "Run the tests" could mean any of these. Ask first.
+
+**Trigger phrases requiring clarification:**
+- "run the tests"
+- "run all tests"
+- "check test status"
+- "status of tests"
+- "make sure tests pass"
+
+**Clear requests that don't need clarification:**
+- "run unit tests" → `npm run test:unit`
+- "run visual tests" → `npm run test:visual:headless`
+- "run smoke test" → `npm run test:smoke`
+- "run lint" → `npm run lint`
 
 This skill coordinates testing strategy across all test types. Tests are **colocated** with the code they test - when viewing a module, you see all its tests nearby.
 
