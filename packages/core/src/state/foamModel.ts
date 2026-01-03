@@ -1,5 +1,5 @@
 /**
- * @deprecated Use layers/05-foam/model.ts instead (Plan 160 Phase 5)
+ * @deprecated Use model/05-foam/model.ts instead (Plan 160 Phase 5)
  *
  * Foam Model - Independent whitewater/foam entities
  * Foam is deposited where waves break and stays in place (doesn't move with wave)

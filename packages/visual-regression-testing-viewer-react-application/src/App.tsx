@@ -13,11 +13,12 @@ import { energyToColor } from '@src/render/colorScales';
 import type { Story } from '@src/test-utils';
 import ErrorBoundary from './ErrorBoundary';
 
-// Dynamically import all story .ts files from layers (excluding visual.spec.ts, index.ts, shared.ts)
+// Dynamically import all story .ts files from model and renderers (excluding visual.spec.ts, index.ts, shared.ts)
 // Use eager: false to allow dynamic imports, and accept any exports (not just default)
-const storyModules = import.meta.glob<Record<string, unknown>>(
-  '../../../packages/core/src/layers/**/stories/[0-9]*.ts'
-);
+const storyModules = import.meta.glob<Record<string, unknown>>([
+  '../../../packages/core/src/model/**/stories/[0-9]*.ts',
+  '../../../packages/core/src/renderers/**/stories/[0-9]*.ts',
+]);
 
 // Helper to extract Story from a module (supports both old and new formats)
 function extractStoryFromModule(mod: Record<string, unknown>, filePath: string): Story | undefined {
@@ -130,9 +131,9 @@ function buildNavigationTree(paths: string[]): TreeNode[] {
   const root: TreeNode[] = [];
 
   for (const filePath of paths) {
-    // Remove prefix and ".ts" suffix, extract layer/story structure
+    // Remove prefix and ".ts" suffix, extract model/story structure
     const cleanPath = filePath
-      .replace(/^\.\.\/\.\.\/\.\.\/packages\/core\/src\/layers\//, '')
+      .replace(/^\.\.\/\.\.\/\.\.\/packages\/core\/src\/(model|renderers)\//, '')
       .replace(/\/stories\//, '/')
       .replace(/\.ts$/, '');
     const segments = cleanPath.split('/');

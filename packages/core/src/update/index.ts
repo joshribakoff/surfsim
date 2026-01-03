@@ -94,7 +94,7 @@ export function updateWaves(waves, gameTime, travelDuration, bufferDuration, bat
 }
 
 /**
- * @deprecated Use updateWorld() from layers/world.ts instead (Plan 160 Phase 5)
+ * @deprecated Use updateWorld() from model/world.ts instead (Plan 160 Phase 5)
  *
  * Grid-based foam update:
  * - Detect breaking

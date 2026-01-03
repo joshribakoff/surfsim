@@ -346,7 +346,7 @@ The game uses discrete wave objects with `progressPerX[]` arrays. The energy fie
 ## Files to Create
 
 ```
-packages/core/src/layers/
+packages/core/src/model/
   01-depth/          (renamed from 01-bottom-depth)
   02-energy/         (renamed from 03-energy-field)
   03-velocity/       (new)
@@ -360,7 +360,7 @@ packages/core/src/renderers/
 ## Files to Delete
 
 ```
-packages/core/src/layers/
+packages/core/src/model/
   02-bottom-damping/   (merged into energy)
   05-wave-breaking/    (merged into foam)
   06-energy-transfer/  (merged into foam)
@@ -402,7 +402,7 @@ All tests pass (512 unit, 5 smoke).
 
 ### 2026-01-02: updateWorld Orchestrator Implemented
 
-**Implemented:** `packages/core/src/layers/world.ts`
+**Implemented:** `packages/core/src/model/world.ts`
 
 The orchestrator coordinates all layer updates in correct order:
 1. Velocity from depth (03 reads 01)
@@ -424,7 +424,7 @@ Tests added: 5 tests covering propagation, breaking, foam spawning, no-break in 
 
 **Directory structure now:**
 ```
-layers/
+model/
 ├── 01-depth/       # Bathymetry (static)
 ├── 02-energy/      # Wave energy propagation
 ├── 03-velocity/    # Wave speed (derived from depth)

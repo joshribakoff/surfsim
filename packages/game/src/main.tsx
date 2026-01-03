@@ -16,7 +16,7 @@ declare global {
 // - Coordinates mapped: progress (0-1) → screen pixels at render time
 
 import { WAVE_TYPE } from '@surf/core/src/state/waveModel.js';
-import { getDepth, createBathymetryCacheManager } from '@surf/core/src/layers/01-depth/index.js';
+import { getDepth, createBathymetryCacheManager } from '@surf/core/src/model/01-depth/index.js';
 import { getOceanBounds, calculateTravelDuration } from '@surf/core/src/render/coordinates.js';
 import {
   saveGameState,
@@ -44,8 +44,8 @@ import {
   updateEnergyField,
   injectWavePulse,
   renderEnergyField,
-} from '@surf/core/src/layers/02-energy/index.js';
-import { updateWorld } from '@surf/core/src/layers/world.js';
+} from '@surf/core/src/model/02-energy/index.js';
+import { updateWorld } from '@surf/core/src/model/world.js';
 import {
   FOAM_GRID_HEIGHT,
   FOAM_GRID_WIDTH,

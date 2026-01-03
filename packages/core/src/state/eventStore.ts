@@ -14,9 +14,9 @@ import { createInitialBackgroundState, BACKGROUND_CONFIG } from './backgroundWav
 import { createEnergyField, FIELD_HEIGHT, FIELD_WIDTH } from './energyFieldModel.js';
 import { DEFAULT_BATHYMETRY } from './bathymetryModel.js';
 import { createFoamGrids } from './foamGridModel.js';
-import { createVelocityField } from '../layers/03-velocity/model.js';
-import { createHeightField } from '../layers/04-height/model.js';
-import { createFoamField } from '../layers/05-foam/model.js';
+import { createVelocityField } from '../model/03-velocity/model.js';
+import { createHeightField } from '../model/04-height/model.js';
+import { createFoamField } from '../model/05-foam/model.js';
 
 // Event types
 export const EventType = {
