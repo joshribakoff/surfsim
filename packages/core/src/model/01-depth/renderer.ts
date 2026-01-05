@@ -61,8 +61,8 @@ export function buildBathymetryCache(
 }
 
 /**
- * Convert depth value to RGB color using Viridis perceptually uniform scale
- * Standard heatmap: low values = purple, high values = yellow
+ * Convert depth value to RGB color using inverted Viridis scale
+ * Inverted: shallow (low depth) = yellow (bright), deep = purple (dark)
  * @param depth - Water depth in meters
  * @param colorScaleDepth - Depth at which color saturates
  */
@@ -72,8 +72,8 @@ export function depthToColor(
 ): { r: number; g: number; b: number } {
   // Use sqrt for non-linear scaling - shows shallow areas more distinctly
   const depthRatio = Math.min(1, Math.sqrt(depth / colorScaleDepth));
-  // Standard heatmap: high depth = yellow (hot), low depth = purple (cold)
-  return viridisToRgb(depthRatio);
+  // Inverted Viridis: shallow = yellow (bright), deep = purple (dark)
+  return viridisToRgb(1 - depthRatio);
 }
 
 /**

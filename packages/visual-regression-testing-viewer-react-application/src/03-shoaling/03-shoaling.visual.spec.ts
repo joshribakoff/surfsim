@@ -1,4 +1,4 @@
 import { defineStoryVisualTests } from '../visual-test-helpers';
-import { PROGRESSION_SHOALING } from '@surf/core/src/model/04-height';
 
-defineStoryVisualTests('04-height', [['01-shoaling', { id: PROGRESSION_SHOALING.id }]]);
+// ID matches the file path structure: layerPrefix/storyFileName -> 04-height/01-shoaling
+defineStoryVisualTests('04-height', [['01-shoaling', { id: '04-height/01-shoaling' }]]);

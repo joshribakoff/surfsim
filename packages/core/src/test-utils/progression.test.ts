@@ -16,7 +16,7 @@ import {
   getProgression,
   clearProgressionRegistry,
 } from './progression.js';
-import { GRID_WIDTH, GRID_HEIGHT } from './matrix.js';
+import { GRID_WIDTH } from './matrix.js';
 
 // Helper to create Float32Array from 2D array for test convenience
 function toFloat32(arr: number[][]): Float32Array {

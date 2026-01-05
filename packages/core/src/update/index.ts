@@ -11,7 +11,6 @@ import {
   getActiveWaves,
   updateWaveRefraction,
   getWaveProgress,
-  isWaveBreaking,
   isWaveBreakingWithEnergy,
   WAVE_TYPE,
 } from '../state/waveModel.js';

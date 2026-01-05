@@ -2,7 +2,6 @@
 // Active surfing AI - seeks foam at the peak triangle and rides along the diagonal
 
 import { sampleFoamIntensity } from '@surf/core/src/state/playerProxyModel.js';
-import { sampleDepth } from '@surf/core/src/model/01-depth/renderer.js';
 
 /**
  * Find the shallowest column in the depth map (the "peak")

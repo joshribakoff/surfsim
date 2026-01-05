@@ -27,6 +27,7 @@ export interface StoryConfig {
 }
 
 export interface Story {
+  id?: string;
   title: string;
   prose: string;
   progression: ReturnType<typeof defineProgression>;
