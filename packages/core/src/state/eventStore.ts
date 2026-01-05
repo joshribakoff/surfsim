@@ -11,7 +11,7 @@
 import { createWave } from './waveModel.js';
 import { createSetLullState, DEFAULT_CONFIG } from './setLullModel.js';
 import { createInitialBackgroundState, BACKGROUND_CONFIG } from './backgroundWaveModel.js';
-import { createEnergyField, FIELD_HEIGHT, FIELD_WIDTH } from './energyFieldModel.js';
+import { createEnergyField, FIELD_HEIGHT, FIELD_WIDTH } from '../model/02-energy/index.js';
 import { createDepthData } from '../model/01-depth/model.js';
 import { createFoamGrids } from './foamGridModel.js';
 import { createVelocityField } from '../model/03-velocity/model.js';

@@ -12,9 +12,6 @@ export {
   sampleDepth,
 } from '../model/01-depth/renderer.js';
 
-// Wave rendering
-export { WAVE_COLORS, getWaveColors, renderWave, renderWaves } from './waveRenderer.js';
-
 // Foam rendering (marching squares)
 export {
   buildIntensityGrid,

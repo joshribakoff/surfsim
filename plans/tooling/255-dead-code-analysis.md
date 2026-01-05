@@ -31,18 +31,27 @@
 
 ---
 
-## HIGH: Energy Model Duplication
+## ~~HIGH: Energy Model Duplication~~ ✅ RESOLVED
 
-Two nearly-identical implementations exist with **both being used in production**:
+| File | Status |
+|------|--------|
+| `state/energyFieldModel.ts` | **DELETED** - Legacy, superseded by model layer |
+| `state/energyFieldModel.test.ts` | **DELETED** |
+| `model/02-energy/model.ts` | **GOLDEN** - All imports updated to use this |
 
-| File | Lines | Used By |
-|------|-------|---------|
-| `state/energyFieldModel.ts` | 83 lines duplicated | `update/index.ts` |
-| `model/02-energy/model.ts` | Same 83 lines | `model/world.ts` |
+**Also deleted (legacy wave rendering):**
+| File | Status |
+|------|--------|
+| `render/waveRenderer.ts` | **DELETED** - Legacy discrete wave rendering |
+| `render/waveRenderer.test.ts` | **DELETED** |
 
-**Risk**: If one diverges, bugs appear only in specific code paths.
-
-**Recommendation**: Complete migration to `model/` architecture, update all imports, delete `state/energyFieldModel.ts`
+**Imports updated:**
+- `state/eventStore.ts` → imports from `model/02-energy`
+- `state/foamGridModel.ts` → imports from `model/02-energy`
+- `update/index.ts` → imports from `model/02-energy`
+- `state/index.ts` → removed legacy re-export
+- `render/index.ts` → removed legacy waveRenderer export
+- `main.tsx` → removed renderWaves call and import
 
 ---
 

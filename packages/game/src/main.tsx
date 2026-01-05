@@ -51,7 +51,6 @@ import {
   FOAM_GRID_WIDTH,
   sampleFoamGrid,
 } from '@surf/core/src/state/foamGridModel.js';
-import { renderWaves } from '@surf/core/src/render/waveRenderer.js';
 import { KeyboardInput } from './input/keyboard.js';
 import { createDebugPanelManager } from './ui/debugPanelManager.js';
 import {
@@ -374,27 +373,6 @@ function draw() {
   // Draw shore (bottom strip)
   ctx.fillStyle = colors.shore;
   ctx.fillRect(0, shoreY, w, world.shoreHeight);
-
-  // Render waves using extracted helper (Plan 170 Phase 2)
-  renderWaves(
-    ctx,
-    world.waves,
-    {
-      canvasWidth: w,
-      oceanTop,
-      oceanBottom,
-      shoreY,
-      gameTime: world.gameTime,
-      travelDuration,
-      showBathymetry: toggles.showBathymetry,
-      showEnergyField: toggles.showEnergyField,
-      energyField: world.energyField,
-    },
-    {
-      showSetWaves: toggles.showSetWaves,
-      showBackgroundWaves: toggles.showBackgroundWaves,
-    }
-  );
 
   // Foam contour rendering using extracted config (Plan 170)
   // Phase 5 (Plan 160): useLayerFoam switches to layer-based foam from updateWorld
