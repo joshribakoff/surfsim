@@ -17,6 +17,88 @@ This causes energy to **spread** (diffuse) rather than **move** as a coherent pu
 
 Energy spreads across 2x more cells, halving the peak.
 
+## Root Cause: Confusing Displacement with Transfer Rate
+
+The quantity `(velocity * dt) / cellHeight` is the **CFL number** - it tells you how many cells the wave front traverses per timestep. It's a *displacement*, not a *transfer coefficient*.
+
+**What the code implements (diffusion equation):**
+```
+∂E/∂t = D · ∂²E/∂x²
+```
+Energy spreads from high to low concentration. A pulse flattens over time.
+
+**What wave propagation actually is (advection equation):**
+```
+∂E/∂t + v · ∂E/∂x = 0
+```
+Energy translates at velocity v. A pulse stays a pulse.
+
+**The single-line bug:**
+```typescript
+// WRONG: treats displacement as transfer rate → diffusion
+const transfer = height[idx] * fraction;
+
+// RIGHT: displacement tells you WHERE to move energy, not HOW MUCH
+shiftFieldDown(field, Math.floor(totalDisplacement));
+```
+
+## Valid vs Invalid Use of Percentages
+
+### INVALID: Temporal fraction (current bug)
+```typescript
+CFL = 0.5  // wave moved half a cell this frame
+// WRONG: "Transfer 50%, leave 50% behind"
+// This creates diffusion - energy that "hasn't moved yet" is fiction
+```
+
+### VALID: Directional routing (future 2D velocity)
+```typescript
+// Velocity at cell points in multiple directions
+const vx = 2, vy = 1;
+const total = Math.abs(vx) + Math.abs(vy);  // 3
+
+// Route energy by direction ratio
+const ratioX = Math.abs(vx) / total;  // 67%
+const ratioY = Math.abs(vy) / total;  // 33%
+
+// 67% goes X, 33% goes Y - ALL energy moves, just different directions
+// No diffusion because nothing "stays behind"
+```
+
+**Key principle:** Energy doesn't partially exist in two places based on sub-cell position. Percentages should only determine **which direction** energy goes, not **whether** it moves.
+
+## Future: Directional Energy Fields
+
+When waves converge from opposite directions, naive shifting would merge them:
+```
+    →  ←
+   [A][B]
+     ↓
+    [C]    ← energies combine and lose individual momentum
+```
+
+### Solution: Track energy by travel direction
+
+```typescript
+interface DirectionalEnergy {
+  towardShore: Float32Array;  // Primary wave direction
+  towardLeft: Float32Array;   // Refracted component
+  towardRight: Float32Array;  // Refracted component
+}
+```
+
+- Energy arriving from the right goes into `towardLeft`, continues moving left
+- Energy arriving from the left goes into `towardRight`, continues moving right
+- Waves pass through each other without collapsing
+- Velocity field ratios route energy *between* directional buckets at boundaries
+
+### For now (single direction)
+
+All current energy moves shoreward. The shift algorithm works because:
+- No directional splitting needed yet
+- Energy shifts as a block
+- Damping remains separate (affects magnitude, not direction)
+
 ## Solution: Time-Derived Integer Shift
 
 Replace percentage-based transfer with array shifting, derived statelessly from game time.
@@ -66,6 +148,7 @@ function shiftFieldDown(field, rows) {
 2. **No diffusion**: Energy moves as a block, maintains concentration
 3. **Deterministic**: Same gameTime always produces same result
 4. **Testable**: Pure function of inputs
+5. **Extensible**: Structure supports adding directional fields later
 
 ### Handling Variable Velocity (Depth-Dependent)
 
@@ -105,6 +188,11 @@ Need to either:
 ### Phase 3: Tune damping
 - Damping now only affects magnitude, not spreading
 - Adjust coefficients for desired shore behavior
+
+### Phase 4 (Future): Directional energy fields
+- Split single `height` array into directional components
+- Implement velocity-ratio routing between directions
+- Enable wave crossing without merging
 
 ## Files to Modify
 

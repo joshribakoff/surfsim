@@ -139,13 +139,10 @@ export function initialMatrix(): Float32Array {
 }
 ```
 
-### Phase 8: Update Tests
+### Phase 8: Update Tests ✅ DONE
 **File: `packages/core/src/model/02-energy/model.test.ts`**
 
-Replace 0-1 test values with kJ:
-- `1.0` → `1000` (kJ)
-- `0.5` → `500` (kJ)
-- `0.3` → `300` (kJ)
+Tests now use kJ values: 300, 500, 800, 1000 kJ.
 
 ---
 
