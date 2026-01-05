@@ -15,9 +15,6 @@ export {
 // Wave rendering
 export { WAVE_COLORS, getWaveColors, renderWave, renderWaves } from './waveRenderer.js';
 
-// Energy field rendering
-export { renderEnergyField } from './energyFieldRenderer.js';
-
 // Foam rendering (marching squares)
 export {
   buildIntensityGrid,
