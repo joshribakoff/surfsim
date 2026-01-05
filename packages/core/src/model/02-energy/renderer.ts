@@ -7,10 +7,6 @@
 
 import { viridisToColor, viridisToRgb } from '../../render/colorScales';
 
-/** Default energy range for normalization */
-export const DEFAULT_ENERGY_MIN = 0;
-export const DEFAULT_ENERGY_MAX = 2.0; // Accounts for wave overlap accumulation
-
 /**
  * Normalize a value to 0-1 range
  */
@@ -46,7 +42,9 @@ export function renderEnergyField(
   options: EnergyRenderOptions = {}
 ): void {
   const { height, width, gridHeight } = field;
-  const { energyMin = DEFAULT_ENERGY_MIN, energyMax = DEFAULT_ENERGY_MAX } = options;
+  // Dynamic scaling like Layer 01 depth renderer
+  const dynamicMax = Math.max(...height) || 1;
+  const { energyMin = 0, energyMax = dynamicMax } = options;
 
   const cellW = canvasWidth / width;
   const cellH = (oceanBottom - oceanTop) / gridHeight;
@@ -82,7 +80,9 @@ export function renderEnergyMatrix(
   canvasHeight: number,
   options: EnergyRenderOptions = {}
 ): void {
-  const { energyMin = DEFAULT_ENERGY_MIN, energyMax = DEFAULT_ENERGY_MAX } = options;
+  // Dynamic scaling like Layer 01 depth renderer
+  const dynamicMax = Math.max(...matrix) || 1;
+  const { energyMin = 0, energyMax = dynamicMax } = options;
   const cellW = canvasWidth / matrixWidth;
   const cellH = canvasHeight / matrixHeight;
 
@@ -116,7 +116,9 @@ export function renderEnergyFieldFast(
   options: EnergyRenderOptions = {}
 ): void {
   const { height, width, gridHeight } = field;
-  const { energyMin = DEFAULT_ENERGY_MIN, energyMax = DEFAULT_ENERGY_MAX } = options;
+  // Dynamic scaling like Layer 01 depth renderer
+  const dynamicMax = Math.max(...height) || 1;
+  const { energyMin = 0, energyMax = dynamicMax } = options;
 
   const pixelWidth = Math.ceil(canvasWidth);
   const pixelHeight = Math.ceil(oceanBottom - oceanTop);

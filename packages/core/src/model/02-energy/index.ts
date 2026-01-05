@@ -18,7 +18,5 @@ export {
   renderEnergyField,
   renderEnergyFieldFast,
   renderEnergyMatrix,
-  DEFAULT_ENERGY_MIN,
-  DEFAULT_ENERGY_MAX,
   type EnergyRenderOptions,
 } from './renderer';
