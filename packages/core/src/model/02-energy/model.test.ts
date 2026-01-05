@@ -4,7 +4,7 @@ import {
   updateEnergyField,
   getHeightAt,
   drainEnergyAt,
-  injectWavePulse,
+  injectEnergyPulse,
   FIELD_WIDTH,
   FIELD_HEIGHT,
 } from './model.js';
@@ -210,27 +210,27 @@ describe('energyFieldModel', () => {
     });
   });
 
-  describe('injectWavePulse', () => {
+  describe('injectEnergyPulse', () => {
     it('adds energy across the horizon row', () => {
       const field = createEnergyField();
 
-      injectWavePulse(field, 0.8);
+      injectEnergyPulse(field.height, field.width, 800); // 800 kJ
 
       // Check several points along horizon
-      expect(field.height[0]).toBeCloseTo(0.8, 5);
-      expect(field.height[field.width / 2]).toBeCloseTo(0.8, 5);
-      expect(field.height[field.width - 1]).toBeCloseTo(0.8, 5);
+      expect(field.height[0]).toBeCloseTo(800, 1);
+      expect(field.height[field.width / 2]).toBeCloseTo(800, 1);
+      expect(field.height[field.width - 1]).toBeCloseTo(800, 1);
     });
 
     it('accumulates with existing energy', () => {
       const field = createEnergyField();
 
       // First pulse
-      injectWavePulse(field, 0.5);
+      injectEnergyPulse(field.height, field.width, 500); // 500 kJ
       // Second pulse
-      injectWavePulse(field, 0.3);
+      injectEnergyPulse(field.height, field.width, 300); // 300 kJ
 
-      expect(field.height[0]).toBeCloseTo(0.8, 5);
+      expect(field.height[0]).toBeCloseTo(800, 1); // 500 + 300 = 800 kJ
     });
   });
 
@@ -239,8 +239,8 @@ describe('energyFieldModel', () => {
       const field = createEnergyField();
       const depthData = createConstantDepth(10);
 
-      // Inject a pulse at horizon
-      injectWavePulse(field, 1.0);
+      // Inject a pulse at horizon (1000 kJ)
+      injectEnergyPulse(field.height, field.width, 1000);
 
       // Propagate energy to middle of field
       // Speed at 10m: ~10 m/s, 200m grid / 40 rows = 5m per row
@@ -252,11 +252,11 @@ describe('energyFieldModel', () => {
         });
       }
 
-      // Find where the energy band is
+      // Find where the energy band is (threshold 500 kJ)
       let energyRow = -1;
       for (let y = 0; y < field.gridHeight; y++) {
         const idx = y * field.width + Math.floor(field.width / 2);
-        if (field.height[idx] > 0.5) {
+        if (field.height[idx] > 500) {
           energyRow = y;
           break;
         }
@@ -271,7 +271,7 @@ describe('energyFieldModel', () => {
 
       // Drain energy at multiple X positions (simulating breaking across width)
       for (let x = 0.3; x <= 0.7; x += 0.1) {
-        drainEnergyAt(field, x, midY, 0.5);
+        drainEnergyAt(field, x, midY, 500); // drain 500 kJ
       }
 
       // Energy at drained positions should be lower

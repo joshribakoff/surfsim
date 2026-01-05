@@ -9,11 +9,14 @@ import { getWaveSpeed, type VelocityField } from '../03-velocity/model';
 import { GRID_WIDTH, GRID_HEIGHT } from '../../test-utils';
 
 /**
- * Inject energy pulse at horizon row.
+ * Inject energy pulse at horizon row (accumulates with existing energy).
+ * @param matrix - Energy field as flat Float32Array
+ * @param width - Grid width (columns)
+ * @param energyKJ - Energy in kilojoules (50-2000 typical range)
  */
-export function injectEnergyPulse(matrix: Float32Array, width: number): void {
+export function injectEnergyPulse(matrix: Float32Array, width: number, energyKJ: number): void {
   for (let col = 0; col < width; col++) {
-    matrix[col] = 1.0;
+    matrix[col] += energyKJ;
   }
 }
 
@@ -22,7 +25,7 @@ export function injectEnergyPulse(matrix: Float32Array, width: number): void {
  */
 export function initialMatrix(): Float32Array {
   const matrix = new Float32Array(GRID_WIDTH * GRID_HEIGHT);
-  injectEnergyPulse(matrix, GRID_WIDTH);
+  injectEnergyPulse(matrix, GRID_WIDTH, 500); // 500 kJ - medium wave
   return matrix;
 }
 
@@ -167,20 +170,6 @@ export function getHeightAt(field, normalizedX, normalizedY) {
   const h0 = h00 * (1 - fx) + h10 * fx;
   const h1 = h01 * (1 - fx) + h11 * fx;
   return h0 * (1 - fy) + h1 * fy;
-}
-
-/**
- * Inject a single wave pulse at the horizon (when a discrete wave spawns)
- * @param {object} field - Energy field
- * @param {number} amplitude - Wave amplitude (0-1)
- */
-export function injectWavePulse(field, amplitude) {
-  const { width } = field;
-
-  // Add pulse across the entire horizon row
-  for (let x = 0; x < width; x++) {
-    field.height[x] += amplitude;
-  }
 }
 
 /**

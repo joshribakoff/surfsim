@@ -39,11 +39,10 @@ function MatrixCanvas({
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Auto-scale like ASCII approach: find max value in matrix
+    // Auto-scale: find max value in matrix for this frame
     const maxValue = Math.max(...matrix) || 1;
     renderEnergyMatrix(ctx, matrix, matrixWidth, matrixHeight, canvas.width, canvas.height, {
-      energyMin: 0,
-      energyMax: maxValue,
+      scaleMax: maxValue,
     });
   }, [matrix, cellSize, matrixWidth, matrixHeight]);
 

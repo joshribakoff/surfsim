@@ -42,7 +42,7 @@ import {
 import { createAIState, drawAIKeyIndicator, AI_MODE } from './state/aiPlayerModel.js';
 import {
   updateEnergyField,
-  injectWavePulse,
+  injectEnergyPulse,
   renderEnergyField,
 } from '@surf/core/src/model/02-energy/index.js';
 import { updateWorld } from '@surf/core/src/model/world.js';
@@ -116,6 +116,10 @@ const getTimeScale = () => store.getState().timeScale;
 
 // Alias for backwards compatibility with E2E tests
 let toggles = { ...world.toggles, timeScale: world.timeScale };
+
+// Energy field scale - maximum value seen so far (only increases to avoid flicker)
+// Starts negative so first frame sets it from actual data
+let energyMaxSoFar = -1;
 
 // Toggle handler for React UI - uses store dispatch + localStorage persistence
 function handleToggle(key) {
@@ -205,10 +209,11 @@ function spawnWave(amplitude, type) {
   store.dispatch({ type: EventType.WAVE_SPAWN, amplitude, waveType: type });
   world = store.getState();
 
-  // Inject pulse into energy field to match discrete wave
-  // Set waves have more energy (2x) than background waves
-  const energyMultiplier = type === WAVE_TYPE.SET ? 2.0 : 1.0;
-  injectWavePulse(world.energyField, amplitude * energyMultiplier);
+  // Inject energy in kJ based on wave type and amplitude
+  // Background: 150 kJ base, Set: 800 kJ base (scaled by amplitude)
+  const baseEnergy = type === WAVE_TYPE.SET ? 800 : 150;
+  const energyKJ = baseEnergy * amplitude;
+  injectEnergyPulse(world.energyField.height, world.energyField.width, energyKJ);
 }
 
 function update(deltaTime) {
@@ -221,9 +226,10 @@ function update(deltaTime) {
 
   // Update energy field (Plan 140) even when not rendered; rendering is toggled separately
   const { oceanBottom } = getOceanBounds(canvas.height, world.shoreHeight);
+  const dampingCoeff = toggles.depthDampingCoefficient ?? 0.1;
   // Pass null for velocityField - will use fallback speed calculation from depth
   updateEnergyField(world.energyField, null, world.depth, scaledDelta, {
-    depthDampingCoefficient: toggles.depthDampingCoefficient ?? 1.5,
+    depthDampingCoefficient: dampingCoeff,
     depthDampingExponent: toggles.depthDampingExponent ?? 2.0,
   });
 
@@ -239,7 +245,7 @@ function update(deltaTime) {
     world.depth,
     scaledDelta,
     {
-      depthDampingCoefficient: toggles.depthDampingCoefficient ?? 1.5,
+      depthDampingCoefficient: dampingCoeff,
       depthDampingExponent: toggles.depthDampingExponent ?? 2.0,
     }
   );
@@ -367,7 +373,31 @@ function draw() {
   // Draw energy field (Plan 140) - toggle with 'E' key
   // Renders as an alternative to discrete waves when enabled
   if (toggles.showEnergyField) {
-    renderEnergyField(ctx, world.energyField, oceanTop, oceanBottom, w);
+    // Update max seen so far (only increases to avoid flicker)
+    const currentMax = Math.max(...world.energyField.height);
+    if (currentMax > 0) {
+      energyMaxSoFar = Math.max(energyMaxSoFar, currentMax);
+    }
+
+    // DEBUG: Log every second based on gameTime
+    const logKey = Math.floor(world.gameTime);
+    if (logKey !== (window as any).__lastEnergyLog) {
+      (window as any).__lastEnergyLog = logKey;
+      const sampleValues = Array.from(world.energyField.height.slice(0, 10)).map((v) =>
+        v.toFixed(1)
+      );
+      const dampVal = toggles.depthDampingCoefficient ?? 0.1;
+      console.log(
+        `[Energy] max=${currentMax.toFixed(1)} kJ, maxSoFar=${energyMaxSoFar.toFixed(1)} kJ, damping=${dampVal}, samples=[${sampleValues.join(', ')}]`
+      );
+    }
+
+    // Only render if we have a valid scale (skip frames with no energy data)
+    if (energyMaxSoFar > 0) {
+      renderEnergyField(ctx, world.energyField, oceanTop, oceanBottom, w, {
+        scaleMax: energyMaxSoFar,
+      });
+    }
   }
 
   // Draw shore (bottom strip)

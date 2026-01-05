@@ -16,10 +16,8 @@ function normalize(value: number, min: number, max: number): number {
 }
 
 export interface EnergyRenderOptions {
-  /** Minimum energy value (maps to purple/0) */
-  energyMin?: number;
-  /** Maximum energy value (maps to yellow/1) */
-  energyMax?: number;
+  /** Scale maximum - highest energy value seen (maps to yellow/1). Required. */
+  scaleMax: number;
 }
 
 /**
@@ -39,12 +37,10 @@ export function renderEnergyField(
   oceanTop: number,
   oceanBottom: number,
   canvasWidth: number,
-  options: EnergyRenderOptions = {}
+  options: EnergyRenderOptions
 ): void {
   const { height, width, gridHeight } = field;
-  // Dynamic scaling like Layer 01 depth renderer
-  const dynamicMax = Math.max(...height) || 1;
-  const { energyMin = 0, energyMax = dynamicMax } = options;
+  const { scaleMax } = options;
 
   const cellW = canvasWidth / width;
   const cellH = (oceanBottom - oceanTop) / gridHeight;
@@ -52,7 +48,7 @@ export function renderEnergyField(
   for (let y = 0; y < gridHeight; y++) {
     for (let x = 0; x < width; x++) {
       const energy = height[y * width + x];
-      const normalized = normalize(energy, energyMin, energyMax);
+      const normalized = normalize(energy, 0, scaleMax);
       ctx.fillStyle = viridisToColor(normalized);
       ctx.fillRect(x * cellW, oceanTop + y * cellH, cellW + 1, cellH + 1);
     }
@@ -78,18 +74,16 @@ export function renderEnergyMatrix(
   matrixHeight: number,
   canvasWidth: number,
   canvasHeight: number,
-  options: EnergyRenderOptions = {}
+  options: EnergyRenderOptions
 ): void {
-  // Dynamic scaling like Layer 01 depth renderer
-  const dynamicMax = Math.max(...matrix) || 1;
-  const { energyMin = 0, energyMax = dynamicMax } = options;
+  const { scaleMax } = options;
   const cellW = canvasWidth / matrixWidth;
   const cellH = canvasHeight / matrixHeight;
 
   for (let row = 0; row < matrixHeight; row++) {
     for (let col = 0; col < matrixWidth; col++) {
       const energy = matrix[row * matrixWidth + col];
-      const normalized = normalize(energy, energyMin, energyMax);
+      const normalized = normalize(energy, 0, scaleMax);
       ctx.fillStyle = viridisToColor(normalized);
       ctx.fillRect(col * cellW, row * cellH, cellW, cellH);
     }
@@ -113,12 +107,10 @@ export function renderEnergyFieldFast(
   oceanTop: number,
   oceanBottom: number,
   canvasWidth: number,
-  options: EnergyRenderOptions = {}
+  options: EnergyRenderOptions
 ): void {
   const { height, width, gridHeight } = field;
-  // Dynamic scaling like Layer 01 depth renderer
-  const dynamicMax = Math.max(...height) || 1;
-  const { energyMin = 0, energyMax = dynamicMax } = options;
+  const { scaleMax } = options;
 
   const pixelWidth = Math.ceil(canvasWidth);
   const pixelHeight = Math.ceil(oceanBottom - oceanTop);
@@ -131,7 +123,7 @@ export function renderEnergyFieldFast(
       const gx = Math.floor((px / pixelWidth) * width);
       const gy = Math.floor((py / pixelHeight) * gridHeight);
       const energy = height[gy * width + gx];
-      const normalized = normalize(energy, energyMin, energyMax);
+      const normalized = normalize(energy, 0, scaleMax);
 
       const { r, g, b } = viridisToRgb(normalized);
 

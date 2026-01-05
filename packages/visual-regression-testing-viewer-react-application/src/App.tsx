@@ -83,11 +83,10 @@ function StoryRenderer({ story, storyId }: { story: Story | undefined; storyId: 
     w: number,
     h: number
   ) => {
-    // Auto-scale like ASCII approach: find max value in matrix
+    // Auto-scale: find max value in matrix for this snapshot
     const maxValue = Math.max(...snap.matrix) || 1;
     renderEnergyMatrix(ctx, snap.matrix, snap.width, snap.height, w, h, {
-      energyMin: 0,
-      energyMax: maxValue,
+      scaleMax: maxValue,
     });
   };
 

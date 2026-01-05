@@ -40,54 +40,56 @@ const normalized = energy / colorScaleEnergy;
 
 ## Implementation Plan
 
-### Phase 1: Update Renderer to Dynamic Scaling
-**File: `packages/core/src/model/02-energy/renderer.ts`**
+### Phase 1: Stateless Renderer with Max-So-Far Scaling ✅ DONE
+**Files:**
+- `packages/core/src/model/02-energy/renderer.ts` - stateless, requires `scaleMax` parameter
+- `packages/game/src/main.tsx` - tracks max seen so far, passes to renderer
+- Story viewer - calculates max per snapshot
 
-Remove hardcoded defaults, use dynamic scaling like depth:
+**Approach:** Renderer is pure/stateless. Caller owns scaling state.
 
 ```typescript
-// REMOVE these:
-// export const DEFAULT_ENERGY_MIN = 0;
-// export const DEFAULT_ENERGY_MAX = 2.0;
+// Renderer (stateless)
+export interface EnergyRenderOptions {
+  scaleMax: number;  // Required - maximum value for scale
+}
 
-// In renderEnergyField():
-const maxEnergy = Math.max(...height) || 1;
-const normalized = energy / maxEnergy;
+// Game loop (owns state)
+let energyMaxSoFar = 1;
+const currentMax = Math.max(...field.height) || 1;
+energyMaxSoFar = Math.max(energyMaxSoFar, currentMax);  // Only increases
+renderEnergyField(ctx, field, top, bottom, w, { scaleMax: energyMaxSoFar });
+
+// Story viewer (per-snapshot max)
+const maxValue = Math.max(...snap.matrix) || 1;
+renderEnergyMatrix(ctx, snap.matrix, w, h, cw, ch, { scaleMax: maxValue });
 ```
 
-### Phase 2: Update Energy Injection Values
-**File: `packages/game/src/main.tsx` (line 211-212)**
+### Phase 2: Unified Energy Injection with kJ Units ✅ DONE
+**Files:**
+- `packages/core/src/model/02-energy/model.ts` - unified `injectEnergyPulse(matrix, width, energyKJ)`
+- `packages/game/src/main.tsx` - calculates kJ based on wave type
+- `packages/core/src/model/02-energy/model.test.ts` - updated tests for kJ values
 
-Change from dimensionless amplitude to kJ:
-
+**Implementation:**
 ```typescript
-// Current (dimensionless):
-const energyMultiplier = type === WAVE_TYPE.SET ? 2.0 : 1.0;
-injectWavePulse(world.energyField, amplitude * energyMultiplier);
-
-// New (kilojoules):
-// Small background wave ~100kJ, large set wave ~1000kJ
-const baseEnergy = type === WAVE_TYPE.SET ? 800 : 150;  // kJ
-const energyKJ = baseEnergy * amplitude;  // Scale by amplitude
-injectWavePulse(world.energyField, energyKJ);
-```
-
-### Phase 3: Update injectEnergyPulse for Stories
-**File: `packages/core/src/model/02-energy/model.ts` (line 14-18)**
-
-Add energyKJ parameter with sensible default:
-
-```typescript
-export function injectEnergyPulse(
-  matrix: Float32Array,
-  width: number,
-  energyKJ: number = 500  // Default: medium wave energy
-): void {
+// Unified function (accumulates)
+export function injectEnergyPulse(matrix: Float32Array, width: number, energyKJ: number): void {
   for (let col = 0; col < width; col++) {
-    matrix[col] = energyKJ;
+    matrix[col] += energyKJ;
   }
 }
+
+// Game calculates kJ
+const baseEnergy = type === WAVE_TYPE.SET ? 800 : 150;
+const energyKJ = baseEnergy * amplitude;
+injectEnergyPulse(world.energyField.height, world.energyField.width, energyKJ);
+
+// Stories use explicit kJ
+injectEnergyPulse(matrix, GRID_WIDTH, 500); // 500 kJ
 ```
+
+**Deleted:** `injectWavePulse` (legacy wrapper function)
 
 ### Phase 4: Update Energy Drain Scaling
 **File: `packages/core/src/update/index.ts` (line 181)**

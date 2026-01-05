@@ -19,7 +19,7 @@ import {
   updateEnergyField,
   getHeightAt,
   drainEnergyAt,
-  injectWavePulse,
+  injectEnergyPulse,
 } from '../model/02-energy/index.js';
 import { accumulateEnergyTransfer, updateFoamLayer } from '../state/foamGridModel.js';
 import { createPlayerProxy } from '../state/playerProxyModel.js';
@@ -394,5 +394,5 @@ export function initializePlayer(canvasWidth, canvasHeight, shoreHeight) {
 }
 
 // Re-export utilities for convenience
-export { injectWavePulse, updateEnergyField };
+export { injectEnergyPulse, updateEnergyField };
 export { sampleDepth } from '../model/01-depth/renderer.js';

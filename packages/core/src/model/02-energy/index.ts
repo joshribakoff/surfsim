@@ -9,7 +9,7 @@ export {
   createEnergyField,
   updateEnergyField,
   getHeightAt,
-  injectWavePulse,
+  injectEnergyPulse,
   drainEnergyAt,
 } from './model';
 
