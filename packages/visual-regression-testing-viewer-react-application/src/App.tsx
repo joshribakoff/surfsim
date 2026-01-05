@@ -9,8 +9,8 @@ import {
 } from './ThemeContext';
 import { Filmstrip } from './components/Filmstrip';
 import { ProgressionPlayer } from './components/ProgressionPlayer';
-import { renderEnergyMatrix } from '@src/model/02-energy/renderer';
-import type { Story } from '@src/test-utils';
+import { renderEnergyMatrix } from '@surf/core/src/model/02-energy/renderer';
+import type { Story } from '@surf/core/src/test-utils';
 import ErrorBoundary from './ErrorBoundary';
 
 // Dynamically import all story .ts files from model and renderers (excluding visual.spec.ts, index.ts, shared.ts)

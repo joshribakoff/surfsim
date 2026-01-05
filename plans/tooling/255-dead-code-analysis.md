@@ -55,23 +55,25 @@
 
 ---
 
-## Unused Files
+## ~~Unused Files~~ ✅ RESOLVED
 
-| File | Reason |
+| File | Status |
 |------|--------|
-| `scripts/generate-story-ascii.ts` | References outdated path `packages/core/src/layers` (renamed to `model`) |
-| `packages/core/src/core/math.ts` | Entire module (73 lines) never imported - 3D math utilities for planned WebGL |
+| `scripts/generate-story-ascii.ts` | **DELETED** - Referenced outdated path `packages/core/src/layers` |
+| `packages/core/src/core/math.ts` | Keep for now - 3D math utilities for planned WebGL |
 
 ---
 
-## Unused Dependencies
+## ~~Unused Dependencies~~ ✅ FALSE POSITIVES
 
-| Package | Location |
-|---------|----------|
-| `concurrently` | `package.json:64` |
-| `eslint-plugin-prettier` | `package.json:67` |
-| `gifenc` | `package.json:69` |
-| `pngjs` | `package.json:76` |
+These were flagged by Knip but are actually needed:
+
+| Package | Reason to Keep |
+|---------|----------------|
+| `concurrently` | Used for parallel script execution |
+| `eslint-plugin-prettier` | ESLint/Prettier integration |
+| `gifenc` | Planned: visual regression testing of animations |
+| `pngjs` | Planned: visual regression testing |
 
 ---
 
@@ -171,14 +173,14 @@ Both are actively imported, creating duplicate code that could diverge.
 
 ## Prioritized Action Items
 
-### Priority 0: Safe Deletions (No Risk)
-1. Delete `packages/core/src/model/02-energy/renderer.ts` (100% duplicate)
-2. Delete `scripts/generate-story-ascii.ts` (outdated script)
-3. Remove unused devDependencies: `concurrently`, `eslint-plugin-prettier`, `gifenc`, `pngjs`
+### Priority 0: Safe Deletions (No Risk) ✅ DONE
+1. ~~Delete `render/energyFieldRenderer.ts`~~ (DELETED - was legacy, not the colocated one)
+2. ~~Delete `scripts/generate-story-ascii.ts`~~ (DELETED)
+3. ~~Remove unused devDependencies~~ (FALSE POSITIVES - all needed)
 
-### Priority 1: Consolidation Needed
-1. Consolidate `state/energyFieldModel.ts` with `model/02-energy/model.ts`
-2. Delete or consolidate duplicate test files
+### Priority 1: Consolidation Needed ✅ DONE
+1. ~~Consolidate `state/energyFieldModel.ts`~~ (DELETED - model/02-energy is golden)
+2. ~~Delete or consolidate duplicate test files~~ (DELETED with legacy files)
 
 ### Priority 2: Clean Up Exports
 1. Remove dead marching squares functions (non-grid variants)

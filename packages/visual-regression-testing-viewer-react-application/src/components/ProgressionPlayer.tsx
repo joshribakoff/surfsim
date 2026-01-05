@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { renderEnergyMatrix } from '@src/model/02-energy/renderer';
+import { renderEnergyMatrix } from '@surf/core/src/model/02-energy/renderer';
 import { useTheme } from '../ThemeContext';
 
 interface Snapshot {
