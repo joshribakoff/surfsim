@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { depthToColor, buildBathymetryCache, createBathymetryCacheManager } from './renderer';
-import { DEFAULT_BATHYMETRY } from './model';
+import { createDepthData } from './model';
 
-describe('bathymetryRenderer', () => {
+// Test depth data
+const TEST_WIDTH = 60;
+const TEST_HEIGHT = 40;
+const TEST_MAX_DEPTH = 30;
+const testDepthData = createDepthData(TEST_MAX_DEPTH, TEST_WIDTH, TEST_HEIGHT);
+
+describe('depthRenderer', () => {
   describe('depthToColor', () => {
     it('returns bright yellow color for shallow water (depth ~0)', () => {
       const { r, g, b } = depthToColor(0.1, 15);
@@ -57,7 +63,6 @@ describe('bathymetryRenderer', () => {
     let mockCtx;
 
     beforeEach(() => {
-      // Mock canvas creation
       mockCtx = {
         fillStyle: '',
         fillRect: vi.fn(),
@@ -71,7 +76,7 @@ describe('bathymetryRenderer', () => {
     });
 
     it('creates canvas with correct dimensions', () => {
-      buildBathymetryCache(800, 0, 600, DEFAULT_BATHYMETRY);
+      buildBathymetryCache(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
 
       expect(mockCanvas.width).toBe(800);
       expect(mockCanvas.height).toBe(600);
@@ -84,24 +89,30 @@ describe('bathymetryRenderer', () => {
       const stepX = 4;
       const stepY = 4;
 
-      buildBathymetryCache(width, oceanTop, oceanBottom, DEFAULT_BATHYMETRY, { stepX, stepY });
+      buildBathymetryCache(width, oceanTop, oceanBottom, testDepthData, TEST_WIDTH, TEST_HEIGHT, {
+        stepX,
+        stepY,
+      });
 
-      // Expected cells: (width/stepX) * ((oceanBottom-oceanTop)/stepY)
       const expectedCells = (width / stepX) * ((oceanBottom - oceanTop) / stepY);
       expect(mockCtx.fillRect).toHaveBeenCalledTimes(expectedCells);
     });
 
     it('uses correct cell size from options', () => {
-      buildBathymetryCache(100, 0, 100, DEFAULT_BATHYMETRY, { stepX: 10, stepY: 10 });
+      buildBathymetryCache(100, 0, 100, testDepthData, TEST_WIDTH, TEST_HEIGHT, {
+        stepX: 10,
+        stepY: 10,
+      });
 
-      // First fillRect should be at (0, 0) with size (10, 10)
       expect(mockCtx.fillRect).toHaveBeenCalledWith(0, 0, 10, 10);
     });
 
     it('sets fillStyle to rgb color string', () => {
-      buildBathymetryCache(10, 0, 10, DEFAULT_BATHYMETRY, { stepX: 10, stepY: 10 });
+      buildBathymetryCache(10, 0, 10, testDepthData, TEST_WIDTH, TEST_HEIGHT, {
+        stepX: 10,
+        stepY: 10,
+      });
 
-      // fillStyle should be set to an rgb string
       expect(mockCtx.fillStyle).toMatch(/^rgb\(\d+, \d+, \d+\)$/);
     });
   });
@@ -126,7 +137,7 @@ describe('bathymetryRenderer', () => {
     it('builds cache on first get()', () => {
       const manager = createBathymetryCacheManager();
 
-      const cache = manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      const cache = manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
 
       expect(cache).toBe(mockCanvas);
       expect(document.createElement).toHaveBeenCalledWith('canvas');
@@ -135,49 +146,45 @@ describe('bathymetryRenderer', () => {
     it('returns same cache on subsequent get() with same dimensions', () => {
       const manager = createBathymetryCacheManager();
 
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
       const createCallCount = vi.mocked(document.createElement).mock.calls.length;
 
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
 
-      // Should not create another canvas
       expect(document.createElement).toHaveBeenCalledTimes(createCallCount);
     });
 
     it('rebuilds cache when width changes', () => {
       const manager = createBathymetryCacheManager();
 
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
       const createCallCount = vi.mocked(document.createElement).mock.calls.length;
 
-      manager.get(1024, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(1024, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
 
-      // Should create another canvas
       expect(document.createElement).toHaveBeenCalledTimes(createCallCount + 1);
     });
 
     it('rebuilds cache when height changes', () => {
       const manager = createBathymetryCacheManager();
 
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
       const createCallCount = vi.mocked(document.createElement).mock.calls.length;
 
-      manager.get(800, 0, 768, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 768, testDepthData, TEST_WIDTH, TEST_HEIGHT);
 
-      // Should create another canvas
       expect(document.createElement).toHaveBeenCalledTimes(createCallCount + 1);
     });
 
     it('invalidate() forces rebuild on next get()', () => {
       const manager = createBathymetryCacheManager();
 
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
       const createCallCount = vi.mocked(document.createElement).mock.calls.length;
 
       manager.invalidate();
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
 
-      // Should create another canvas after invalidate
       expect(document.createElement).toHaveBeenCalledTimes(createCallCount + 1);
     });
 
@@ -190,7 +197,7 @@ describe('bathymetryRenderer', () => {
     it('isValid() returns true after build with matching dimensions', () => {
       const manager = createBathymetryCacheManager();
 
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
 
       expect(manager.isValid(800, 600)).toBe(true);
     });
@@ -198,7 +205,7 @@ describe('bathymetryRenderer', () => {
     it('isValid() returns false after build with different dimensions', () => {
       const manager = createBathymetryCacheManager();
 
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
 
       expect(manager.isValid(1024, 600)).toBe(false);
       expect(manager.isValid(800, 768)).toBe(false);
@@ -207,7 +214,7 @@ describe('bathymetryRenderer', () => {
     it('isValid() returns false after invalidate()', () => {
       const manager = createBathymetryCacheManager();
 
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
       manager.invalidate();
 
       expect(manager.isValid(800, 600)).toBe(false);
@@ -236,16 +243,13 @@ describe('bathymetryRenderer', () => {
     it('cache manager prevents repeated expensive builds', () => {
       const manager = createBathymetryCacheManager();
 
-      // First build - expensive
-      manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+      manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
       const firstBuildCalls = fillRectCalls;
 
-      // Reset counter
       fillRectCalls = 0;
 
-      // Subsequent gets - should be free (no fillRect calls)
       for (let i = 0; i < 100; i++) {
-        manager.get(800, 0, 600, DEFAULT_BATHYMETRY);
+        manager.get(800, 0, 600, testDepthData, TEST_WIDTH, TEST_HEIGHT);
       }
 
       expect(fillRectCalls).toBe(0);
@@ -253,19 +257,16 @@ describe('bathymetryRenderer', () => {
     });
 
     it('documents expected cell count for typical screen', () => {
-      // For a 1920x1080 screen with 100px shore and 4px cells:
-      // Width cells: 1920/4 = 480
-      // Height cells: (1080-100)/4 = 245
-      // Total: 480 * 245 = 117,600 cells
-      // This is why caching is important!
-
       const width = 1920;
       const oceanTop = 0;
-      const oceanBottom = 980; // 1080 - 100 shore
+      const oceanBottom = 980;
       const stepX = 4;
       const stepY = 4;
 
-      buildBathymetryCache(width, oceanTop, oceanBottom, DEFAULT_BATHYMETRY, { stepX, stepY });
+      buildBathymetryCache(width, oceanTop, oceanBottom, testDepthData, TEST_WIDTH, TEST_HEIGHT, {
+        stepX,
+        stepY,
+      });
 
       const expectedCells = (width / stepX) * ((oceanBottom - oceanTop) / stepY);
       expect(mockCtx.fillRect).toHaveBeenCalledTimes(expectedCells);

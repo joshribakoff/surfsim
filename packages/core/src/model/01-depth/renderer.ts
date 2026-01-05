@@ -1,30 +1,45 @@
-// Bathymetry Heat Map Renderer (Plan 130)
+// Depth Heat Map Renderer (Plan 130)
 // Renders ocean floor depth as a color-coded heat map
 // Uses caching for performance - builds once, blits each frame
 
-import { getDepth } from './model';
 import { viridisToRgb } from '../../render/colorScales';
 
 /**
- * Build bathymetry heat map to an offscreen canvas
- * @param {number} width - Canvas width in pixels
- * @param {number} oceanTop - Y coordinate of ocean top (horizon)
- * @param {number} oceanBottom - Y coordinate of ocean bottom (shore line)
- * @param {object} bathymetry - Bathymetry configuration
- * @param {object} options - Rendering options
- * @param {number} options.stepX - Horizontal cell size (default 4)
- * @param {number} options.stepY - Vertical cell size (default 4)
- * @param {number} options.colorScaleDepth - Depth at which color saturates (default 15)
- * @returns {HTMLCanvasElement} Offscreen canvas with rendered heat map
+ * Sample depth from Float32Array at normalized coordinates
+ */
+export function sampleDepth(
+  depthData: Float32Array,
+  gridWidth: number,
+  gridHeight: number,
+  normalizedX: number,
+  normalizedY: number
+): number {
+  const x = Math.min(gridWidth - 1, Math.max(0, Math.floor(normalizedX * gridWidth)));
+  const y = Math.min(gridHeight - 1, Math.max(0, Math.floor(normalizedY * gridHeight)));
+  return depthData[y * gridWidth + x];
+}
+
+/**
+ * Build depth heat map to an offscreen canvas
+ * @param width - Canvas width in pixels
+ * @param oceanTop - Y coordinate of ocean top (horizon)
+ * @param oceanBottom - Y coordinate of ocean bottom (shore line)
+ * @param depthData - Pre-computed depth Float32Array
+ * @param gridWidth - Depth grid width
+ * @param gridHeight - Depth grid height
+ * @param options - Rendering options
  */
 export function buildBathymetryCache(
-  width,
-  oceanTop,
-  oceanBottom,
-  bathymetry,
-  options: Record<string, any> = {}
+  width: number,
+  oceanTop: number,
+  oceanBottom: number,
+  depthData: Float32Array,
+  gridWidth: number,
+  gridHeight: number,
+  options: { stepX?: number; stepY?: number } = {}
 ) {
-  const { stepX = 4, stepY = 4, colorScaleDepth = 15 } = options;
+  const { stepX = 4, stepY = 4 } = options;
+  const colorScaleDepth = Math.max(...depthData) || 1;
 
   const cache = document.createElement('canvas');
   cache.width = width;
@@ -32,10 +47,10 @@ export function buildBathymetryCache(
   const cacheCtx = cache.getContext('2d');
 
   for (let y = oceanTop; y < oceanBottom; y += stepY) {
-    const progress = (y - oceanTop) / (oceanBottom - oceanTop);
+    const normalizedY = (y - oceanTop) / (oceanBottom - oceanTop);
     for (let x = 0; x < width; x += stepX) {
       const normalizedX = x / width;
-      const depth = getDepth(normalizedX, bathymetry, progress);
+      const depth = sampleDepth(depthData, gridWidth, gridHeight, normalizedX, normalizedY);
       const { r, g, b } = depthToColor(depth, colorScaleDepth);
       cacheCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       cacheCtx.fillRect(x, y, stepX, stepY);
@@ -47,66 +62,67 @@ export function buildBathymetryCache(
 
 /**
  * Convert depth value to RGB color using Viridis perceptually uniform scale
- * Shallow = yellow (warm), Deep = purple (cool)
- * @param {number} depth - Water depth in meters
- * @param {number} colorScaleDepth - Depth at which color saturates
- * @returns {{r: number, g: number, b: number}} RGB color values
+ * Standard heatmap: low values = purple, high values = yellow
+ * @param depth - Water depth in meters
+ * @param colorScaleDepth - Depth at which color saturates
  */
 export function depthToColor(
   depth: number,
-  colorScaleDepth = 15
+  colorScaleDepth: number
 ): { r: number; g: number; b: number } {
   // Use sqrt for non-linear scaling - shows shallow areas more distinctly
   const depthRatio = Math.min(1, Math.sqrt(depth / colorScaleDepth));
-  // Invert: shallow (low depth) = yellow, deep (high depth) = purple
-  return viridisToRgb(1 - depthRatio);
+  // Standard heatmap: high depth = yellow (hot), low depth = purple (cold)
+  return viridisToRgb(depthRatio);
 }
 
 /**
- * Create a cache manager for bathymetry rendering
+ * Create a cache manager for depth heatmap rendering
  * Handles cache invalidation on resize
- * @returns {object} Cache manager with get() and invalidate() methods
  */
 export function createBathymetryCacheManager() {
-  let cache = null;
+  let cache: HTMLCanvasElement | null = null;
   let cachedWidth = 0;
   let cachedHeight = 0;
 
   return {
     /**
-     * Get or build the bathymetry cache
-     * @param {number} width - Canvas width
-     * @param {number} oceanTop - Ocean top Y coordinate
-     * @param {number} oceanBottom - Ocean bottom Y coordinate
-     * @param {object} bathymetry - Bathymetry config
-     * @param {object} options - Rendering options
-     * @returns {HTMLCanvasElement} Cached canvas
+     * Get or build the depth heatmap cache
      */
-    get(width, oceanTop, oceanBottom, bathymetry, options = {}) {
+    get(
+      width: number,
+      oceanTop: number,
+      oceanBottom: number,
+      depthData: Float32Array,
+      gridWidth: number,
+      gridHeight: number,
+      options: { stepX?: number; stepY?: number } = {}
+    ) {
       if (!cache || cachedWidth !== width || cachedHeight !== oceanBottom) {
-        cache = buildBathymetryCache(width, oceanTop, oceanBottom, bathymetry, options);
+        cache = buildBathymetryCache(
+          width,
+          oceanTop,
+          oceanBottom,
+          depthData,
+          gridWidth,
+          gridHeight,
+          options
+        );
         cachedWidth = width;
         cachedHeight = oceanBottom;
       }
       return cache;
     },
 
-    /**
-     * Invalidate the cache (call on resize)
-     */
+    /** Invalidate the cache (call on resize) */
     invalidate() {
       cache = null;
       cachedWidth = 0;
       cachedHeight = 0;
     },
 
-    /**
-     * Check if cache is valid for given dimensions
-     * @param {number} width - Canvas width
-     * @param {number} height - Ocean bottom Y coordinate
-     * @returns {boolean} True if cache is valid
-     */
-    isValid(width, height) {
+    /** Check if cache is valid for given dimensions */
+    isValid(width: number, height: number) {
       return cache !== null && cachedWidth === width && cachedHeight === height;
     },
   };

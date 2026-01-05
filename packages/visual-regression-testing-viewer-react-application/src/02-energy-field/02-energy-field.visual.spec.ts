@@ -1,4 +1,4 @@
 import { defineStoryVisualTests } from '../visual-test-helpers';
-import { PROGRESSION_PROPAGATION } from '@surf/core/src/model/02-energy/stories/01-propagation';
+import energyStory from '@surf/core/src/model/02-energy/stories/02-energy';
 
-defineStoryVisualTests('02-energy', [['01-propagation', { id: PROGRESSION_PROPAGATION.id }]]);
+defineStoryVisualTests('02-energy', [['02-energy', { id: energyStory.progression.id }]]);

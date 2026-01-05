@@ -9,9 +9,13 @@
 import { defineStory, asciiToMatrix } from '../../../test-utils';
 import { updateFoamField } from '../model';
 
+const FOAM_WIDTH = 10;
+const FOAM_HEIGHT = 10;
+
 const story = defineStory({
-  id: 'foam/dynamics',
   title: 'Foam Dynamics',
+  width: FOAM_WIDTH,
+  height: FOAM_HEIGHT,
   prose: `Foam behavior using production model.
 
 Physics:
@@ -30,7 +34,7 @@ All three effects combined in updateFoamField().`,
 ----------
 ----------
 ----------
-----------`),
+----------`).data,
   assertInitialAscii: `
     ----------
     ----------
@@ -44,27 +48,23 @@ All three effects combined in updateFoamField().`,
     ----------
   `,
   captureTimes: [0, 1, 2, 3, 4, 5],
-  updateFn: (field, dt) => {
-    updateFoamField(
-      { intensity: field.height, width: field.width, gridHeight: field.gridHeight },
-      dt,
-      {
-        decayRate: 0.35,
-        diffusionRate: 0.15,
-        advectionSpeed: 0.5,
-      }
-    );
+  updateFn: (model, dt) => {
+    updateFoamField({ intensity: model, width: FOAM_WIDTH, gridHeight: FOAM_HEIGHT }, dt, {
+      decayRate: 0.35,
+      diffusionRate: 0.15,
+      advectionSpeed: 0.5,
+    });
   },
   expectedAscii: `
     t=0s        t=1s        t=2s        t=3s        t=4s        t=5s
     ----------  ----------  ----------  ----------  ----------  ----------
     ----------  ----------  ----------  ----------  ----------  ----------
-    ----------  ---1111---  ----------  ----------  ----------  ----------
-    ---FFFF---  --144441--  ---1221---  ---1111---  ----------  ----------
+    ----------  ----11----  ----------  ----------  ----------  ----------
+    ---FFFF---  ---3443---  ---1221---  ---1111---  ----------  ----------
     ---FFFF---  --1ABBA1--  --123321--  ---1221---  ---1111---  ----------
-    ----------  ---3333---  --123321--  ---1221---  ---1111---  ----11----
-    ----------  ---1111---  ---1111---  ---1111---  ---1111---  ---1111---
-    ----------  ----------  ----11----  ---1111---  ---1111---  ----11----
+    ----------  ---3333---  --122221--  ---1221---  ---1111---  ----11----
+    ----------  ---1111---  ---1111---  ---1111---  ---1111---  ----11----
+    ----------  ----------  ----11----  ---1111---  ----11----  ----------
     ----------  ----------  ----------  ----------  ----------  ----------
     ----------  ----------  ----------  ----------  ----------  ----------
   `,

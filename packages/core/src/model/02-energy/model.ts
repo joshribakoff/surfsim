@@ -4,8 +4,27 @@
 // The field stores height values at each grid point. Waves propagate via
 // the wave equation with depth-dependent speed from bathymetry.
 
-import { assertSameSize } from '../../state/bathymetryModel';
+import { assertSameSize } from '../../utils/assertSameSize';
 import { getWaveSpeed, type VelocityField } from '../03-velocity/model';
+import { GRID_WIDTH, GRID_HEIGHT } from '../../test-utils';
+
+/**
+ * Inject energy pulse at horizon row.
+ */
+export function injectEnergyPulse(matrix: Float32Array, width: number): void {
+  for (let col = 0; col < width; col++) {
+    matrix[col] = 1.0;
+  }
+}
+
+/**
+ * Create initial energy matrix - empty with energy pulse at horizon.
+ */
+export function initialMatrix(): Float32Array {
+  const matrix = new Float32Array(GRID_WIDTH * GRID_HEIGHT);
+  injectEnergyPulse(matrix, GRID_WIDTH);
+  return matrix;
+}
 
 // Grid resolution - balance between accuracy and performance
 export const FIELD_WIDTH = 60; // X resolution (across screen)

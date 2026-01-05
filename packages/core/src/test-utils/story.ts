@@ -9,12 +9,16 @@
 
 import { defineProgression } from './progression.js';
 import { progressionToAscii, matrixToAscii } from './asciiMatrix.js';
+import { GRID_WIDTH, GRID_HEIGHT } from './matrix.js';
 
 export interface StoryConfig {
-  id: string;
   title: string;
   prose: string;
-  initialMatrix: number[][];
+  initialMatrix: Float32Array;
+  /** Grid width (default: GRID_WIDTH = 8) */
+  width?: number;
+  /** Grid height (default: GRID_HEIGHT = 10) */
+  height?: number;
   /** Assert the initialMatrix matches this ASCII (catches upstream layer drift) */
   assertInitialAscii?: string;
   captureTimes?: number[];
@@ -23,7 +27,6 @@ export interface StoryConfig {
 }
 
 export interface Story {
-  id: string;
   title: string;
   prose: string;
   progression: ReturnType<typeof defineProgression>;
@@ -35,10 +38,11 @@ export interface Story {
  */
 export function defineStory(config: StoryConfig): Story {
   const {
-    id,
     title,
     prose,
     initialMatrix,
+    width = GRID_WIDTH,
+    height = GRID_HEIGHT,
     assertInitialAscii,
     captureTimes = [0, 1, 2, 3, 4, 5],
     updateFn,
@@ -47,21 +51,23 @@ export function defineStory(config: StoryConfig): Story {
 
   // Validate initial matrix matches assertion (catches upstream layer drift)
   if (assertInitialAscii) {
-    const actualInitialAscii = matrixToAscii(initialMatrix);
+    const actualInitialAscii = matrixToAscii(initialMatrix, width, height);
     const normalizedExpected = normalizeAscii(assertInitialAscii);
     const normalizedActual = normalizeAscii(actualInitialAscii);
 
     if (normalizedActual !== normalizedExpected) {
       throw new Error(
-        `Story "${id}" initial matrix mismatch (upstream layer may have changed):\n\nExpected:\n${normalizedExpected}\n\nActual:\n${normalizedActual}`
+        `Story "${title}" initial matrix mismatch (upstream layer may have changed):\n\nExpected:\n${normalizedExpected}\n\nActual:\n${normalizedActual}`
       );
     }
   }
 
   const progression = defineProgression({
-    id,
+    id: title, // Use title as id for progression registry
     description: prose,
     initialMatrix,
+    width,
+    height,
     captureTimes,
     updateFn,
     metadata: { label: title },
@@ -74,11 +80,11 @@ export function defineStory(config: StoryConfig): Story {
 
   if (normalizedActual !== normalizedExpected) {
     throw new Error(
-      `Story "${id}" ASCII mismatch:\n\nExpected:\n${normalizedExpected}\n\nActual:\n${normalizedActual}`
+      `Story "${title}" ASCII mismatch:\n\nExpected:\n${normalizedExpected}\n\nActual:\n${normalizedActual}`
     );
   }
 
-  return { id, title, prose, progression };
+  return { title, prose, progression };
 }
 
 /**

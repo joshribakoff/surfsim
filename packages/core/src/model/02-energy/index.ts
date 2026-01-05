@@ -13,8 +13,12 @@ export {
   drainEnergyAt,
 } from './model';
 
-// Renderer exports - production rendering
-export { renderEnergyField, renderEnergyFieldFast } from './renderer';
-
-// Story exports
-export { PROGRESSION_PROPAGATION } from './stories/01-propagation';
+// Renderer exports - canonical Viridis-based rendering
+export {
+  renderEnergyField,
+  renderEnergyFieldFast,
+  renderEnergyMatrix,
+  DEFAULT_ENERGY_MIN,
+  DEFAULT_ENERGY_MAX,
+  type EnergyRenderOptions,
+} from './renderer';

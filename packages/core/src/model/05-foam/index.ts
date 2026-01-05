@@ -17,9 +17,8 @@ export {
 } from './model';
 export type { FoamField, FoamConfig } from './model';
 
-// Legacy shared utilities (for stories)
-export { GRID_WIDTH, GRID_HEIGHT, createMatrix } from './shared';
-export type { Matrix } from './shared';
+// Shared constants (for stories)
+export { GRID_WIDTH, GRID_HEIGHT } from './shared';
 
 // Story exports (consolidated)
 export { default as foamDynamicsStory, PROGRESSION_FOAM } from './stories/01-foam-dynamics';

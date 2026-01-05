@@ -5,7 +5,7 @@
 // Direction is initially straight down (toward shore).
 // Future: refraction bends waves toward shallower water.
 
-import { assertSameSize } from '../../state/bathymetryModel';
+import { assertSameSize } from '../../utils/assertSameSize';
 
 const G = 9.81; // gravitational acceleration m/s²
 

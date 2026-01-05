@@ -5,24 +5,24 @@
  * Includes custom drawing utilities for foam patterns.
  */
 
-import { defineProgression, createMatrixWithSize, Matrix, STATIC_CAPTURE } from '../../test-utils';
+import { defineProgression, createMatrixWithSize, STATIC_CAPTURE } from '../../test-utils';
 
 export const GRID_SIZE = 16;
 
-export type { Matrix };
 export { STATIC_CAPTURE };
 
-export function createMatrix(): Matrix {
+export function createMatrix(): Float32Array {
   return createMatrixWithSize(GRID_SIZE, GRID_SIZE);
 }
 
-export function setCell(matrix: Matrix, x: number, y: number, value: number) {
+export function setCell(matrix: Float32Array, x: number, y: number, value: number) {
   if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
-  matrix[y][x] = Math.max(matrix[y][x], value);
+  const idx = y * GRID_SIZE + x;
+  matrix[idx] = Math.max(matrix[idx], value);
 }
 
 export function drawCircle(
-  matrix: Matrix,
+  matrix: Float32Array,
   cx: number,
   cy: number,
   radius: number,
@@ -40,7 +40,7 @@ export function drawCircle(
 }
 
 export function drawHLine(
-  matrix: Matrix,
+  matrix: Float32Array,
   y: number,
   x1: number,
   x2: number,
@@ -59,7 +59,7 @@ export function toProgression(
   id: string,
   label: string,
   description: string,
-  buildMatrix: () => Matrix
+  buildMatrix: () => Float32Array
 ) {
   return defineProgression({
     id,
@@ -67,25 +67,21 @@ export function toProgression(
     initialMatrix: buildMatrix(),
     captureTimes: STATIC_CAPTURE,
     metadata: { label },
+    width: GRID_SIZE,
+    height: GRID_SIZE,
   });
 }
 
 export function snapshotToContourFrame(
-  snapshot: { matrix: Matrix; label: string },
+  snapshot: { matrix: Float32Array; width: number; height: number; label: string },
   baseLabel: string
 ) {
-  const height = snapshot.matrix.length;
-  const width = snapshot.matrix[0]?.length ?? 0;
-  const grid = new Float32Array(width * height);
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      grid[y * width + x] = snapshot.matrix[y][x];
-    }
-  }
+  const { matrix, width, height, label } = snapshot;
+  // Matrix is already Float32Array, just copy it
+  const grid = new Float32Array(matrix);
 
   return {
-    label: snapshot.label === 't=0s' ? baseLabel : `${baseLabel} (${snapshot.label})`,
+    label: label === 't=0s' ? baseLabel : `${baseLabel} (${label})`,
     grid,
     width,
     height,

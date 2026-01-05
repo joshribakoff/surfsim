@@ -4,8 +4,7 @@
  * Height = energy × (refDepth/depth)^0.25 (shoaling)
  */
 
-export { GRID_WIDTH, GRID_HEIGHT, createMatrix } from '../../test-utils';
-export type { Matrix } from '../../test-utils';
+export { GRID_WIDTH, GRID_HEIGHT } from '../../test-utils';
 
 // Reference depth for shoaling calculation
 export const REFERENCE_DEPTH = 10;

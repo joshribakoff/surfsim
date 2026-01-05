@@ -7,9 +7,9 @@ import {
   lightColors,
   useTheme,
 } from './ThemeContext';
-import { Filmstrip, renderMatrixToCanvas } from './components/Filmstrip';
+import { Filmstrip } from './components/Filmstrip';
 import { ProgressionPlayer } from './components/ProgressionPlayer';
-import { energyToColor } from '@src/render/colorScales';
+import { renderEnergyMatrix } from '@src/model/02-energy/renderer';
 import type { Story } from '@src/test-utils';
 import ErrorBoundary from './ErrorBoundary';
 
@@ -25,7 +25,7 @@ function extractStoryFromModule(mod: Record<string, unknown>, filePath: string):
   // New format: default export is the Story
   if (mod.default && typeof mod.default === 'object') {
     const story = mod.default as Story;
-    if (story.id && story.title && story.prose && story.progression) {
+    if (story.title && story.prose && story.progression) {
       return story;
     }
   }
@@ -62,7 +62,7 @@ function extractStoryFromModule(mod: Record<string, unknown>, filePath: string):
 }
 
 // Component to render a Story object
-function StoryRenderer({ story }: { story: Story | undefined }) {
+function StoryRenderer({ story, storyId }: { story: Story | undefined; storyId: string }) {
   const { colors } = useTheme();
 
   // Handle unconverted stories that don't have a default export
@@ -78,12 +78,17 @@ function StoryRenderer({ story }: { story: Story | undefined }) {
   }
 
   const renderSnapshot = (
-    snap: { matrix: number[][]; label: string },
+    snap: { matrix: Float32Array; width: number; height: number; label: string },
     ctx: CanvasRenderingContext2D,
     w: number,
     h: number
   ) => {
-    renderMatrixToCanvas(ctx, snap.matrix, energyToColor, w, h);
+    // Auto-scale like ASCII approach: find max value in matrix
+    const maxValue = Math.max(...snap.matrix) || 1;
+    renderEnergyMatrix(ctx, snap.matrix, snap.width, snap.height, w, h, {
+      energyMin: 0,
+      energyMax: maxValue,
+    });
   };
 
   return (
@@ -97,7 +102,7 @@ function StoryRenderer({ story }: { story: Story | undefined }) {
       <Filmstrip
         snapshots={story.progression.snapshots}
         renderSnapshot={renderSnapshot}
-        testId={`strip-${story.id.replace(/\//g, '-')}`}
+        testId={`strip-${storyId.replace(/\//g, '-')}`}
       />
     </div>
   );
@@ -265,7 +270,7 @@ for (const leaf of allLeaves) {
   pageComponents[leaf.id] = React.lazy(async () => {
     const mod = await loader();
     const story = extractStoryFromModule(mod, filePath);
-    return { default: () => <StoryRenderer story={story} /> };
+    return { default: () => <StoryRenderer story={story} storyId={leaf.id} /> };
   });
 }
 

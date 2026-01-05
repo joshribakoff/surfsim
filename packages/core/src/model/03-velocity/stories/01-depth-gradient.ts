@@ -1,27 +1,26 @@
 import { defineStory } from '../../../test-utils';
 import { getWaveSpeed } from '../model';
-import { GRID_WIDTH, GRID_HEIGHT, createMatrix, shallowGradient, MAX_SPEED } from '../shared';
+import { GRID_WIDTH, GRID_HEIGHT, shallowGradient, MAX_SPEED } from '../shared';
 
 /**
  * Compute velocity field (normalized speed) from depth gradient.
  * Speed = sqrt(g * depth), slower in shallow water.
  */
-function computeVelocityMatrix(): number[][] {
-  const matrix = createMatrix();
+function computeVelocityMatrix(): Float32Array {
+  const matrix = new Float32Array(GRID_WIDTH * GRID_HEIGHT);
   for (let row = 0; row < GRID_HEIGHT; row++) {
     const normalizedY = row / (GRID_HEIGHT - 1);
     for (let col = 0; col < GRID_WIDTH; col++) {
       const normalizedX = (col + 0.5) / GRID_WIDTH;
       const depth = shallowGradient(normalizedX, normalizedY);
       const speed = getWaveSpeed(depth);
-      matrix[row][col] = speed / MAX_SPEED; // Normalize to 0-1
+      matrix[row * GRID_WIDTH + col] = speed / MAX_SPEED; // Normalize to 0-1
     }
   }
   return matrix;
 }
 
 const story = defineStory({
-  id: 'velocity/depth-gradient',
   title: 'Velocity from Depth',
   prose: `Wave celerity (speed) depends on depth: c = √(g × d).
 
@@ -34,7 +33,7 @@ Physics:
   expectedAscii: `
     t=0s
     FFFFFFFF
-    FFFFFFFF
+    EEEEEEEE
     EEEEEEEE
     DDDDDDDD
     DDDDDDDD

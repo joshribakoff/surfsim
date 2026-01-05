@@ -2,7 +2,28 @@
 // Active surfing AI - seeks foam at the peak triangle and rides along the diagonal
 
 import { sampleFoamIntensity } from '@surf/core/src/state/playerProxyModel.js';
-import { getPeakX } from '@surf/core/src/state/bathymetryModel.js';
+import { sampleDepth } from '@surf/core/src/model/01-depth/renderer.js';
+
+/**
+ * Find the shallowest column in the depth map (the "peak")
+ * Returns normalized X position (0-1)
+ */
+function findPeakX(depth: Float32Array, depthWidth: number, depthHeight: number): number {
+  // Sample middle row to find shallowest column
+  const midRow = Math.floor(depthHeight / 2);
+  let minDepth = Infinity;
+  let peakCol = depthWidth / 2;
+
+  for (let col = 0; col < depthWidth; col++) {
+    const d = depth[midRow * depthWidth + col];
+    if (d < minDepth) {
+      minDepth = d;
+      peakCol = col;
+    }
+  }
+
+  return (peakCol + 0.5) / depthWidth;
+}
 
 // AI States
 export const AI_STATE = {
@@ -145,8 +166,8 @@ export function updateAIPlayer(
     oceanBottom
   );
 
-  // Peak position for reference
-  const peakX = getPeakX(world.bathymetry) * canvasWidth;
+  // Peak position for reference (shallowest column in depth map)
+  const peakX = findPeakX(world.depth, world.depthWidth, world.depthHeight) * canvasWidth;
 
   // Find best foam to target
   const bestFoam = findBestFoam(world, canvasWidth, oceanTop, oceanBottom, cfg, peakX);

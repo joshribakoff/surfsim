@@ -14,17 +14,6 @@ export {
 } from './progression.js';
 
 export {
-  matrixToField,
-  fieldToMatrix,
-  cloneField,
-  matricesEqual,
-  matrixTotalEnergy,
-  matrixMax,
-  matrixPeakRow,
-} from './matrixField.js';
-
-export type { Matrix } from './matrix.js';
-export {
   GRID_WIDTH,
   GRID_HEIGHT,
   GRID_10x10,
@@ -42,8 +31,6 @@ export {
   matrixToAscii,
   asciiToMatrix,
   progressionToAscii,
-  asciiToProgression,
-  matricesMatchAscii,
 } from './asciiMatrix.js';
 
 export type { StripDefinition } from './strip.js';

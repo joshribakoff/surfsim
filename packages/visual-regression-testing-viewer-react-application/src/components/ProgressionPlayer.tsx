@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { energyToColor } from '@src/render/colorScales';
+import { renderEnergyMatrix } from '@src/model/02-energy/renderer';
 import { useTheme } from '../ThemeContext';
 
 interface Snapshot {
   time: number;
-  matrix: number[][];
+  matrix: Float32Array;
+  width: number;
+  height: number;
   label: string;
 }
 
@@ -16,10 +18,18 @@ interface ProgressionPlayerProps {
   loop?: boolean;
 }
 
-function MatrixCanvas({ matrix, cellSize = 24 }: { matrix: number[][]; cellSize?: number }) {
+function MatrixCanvas({
+  matrix,
+  matrixWidth,
+  matrixHeight,
+  cellSize = 24,
+}: {
+  matrix: Float32Array;
+  matrixWidth: number;
+  matrixHeight: number;
+  cellSize?: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const height = matrix.length;
-  const width = matrix[0]?.length ?? 0;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,20 +39,19 @@ function MatrixCanvas({ matrix, cellSize = 24 }: { matrix: number[][]; cellSize?
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    for (let row = 0; row < height; row++) {
-      for (let col = 0; col < width; col++) {
-        const energy = matrix[row][col];
-        ctx.fillStyle = energyToColor(energy);
-        ctx.fillRect(col * cellSize, row * cellSize, cellSize - 1, cellSize - 1);
-      }
-    }
-  }, [matrix, cellSize, height, width]);
+    // Auto-scale like ASCII approach: find max value in matrix
+    const maxValue = Math.max(...matrix) || 1;
+    renderEnergyMatrix(ctx, matrix, matrixWidth, matrixHeight, canvas.width, canvas.height, {
+      energyMin: 0,
+      energyMax: maxValue,
+    });
+  }, [matrix, cellSize, matrixWidth, matrixHeight]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={width * cellSize}
-      height={height * cellSize}
+      width={matrixWidth * cellSize}
+      height={matrixHeight * cellSize}
       style={{ borderRadius: 4 }}
     />
   );
@@ -92,7 +101,12 @@ export function ProgressionPlayer({
         border: `1px solid ${colors.border}`,
       }}
     >
-      <MatrixCanvas matrix={snapshot.matrix} cellSize={cellSize} />
+      <MatrixCanvas
+        matrix={snapshot.matrix}
+        matrixWidth={snapshot.width}
+        matrixHeight={snapshot.height}
+        cellSize={cellSize}
+      />
       <div
         style={{
           display: 'flex',

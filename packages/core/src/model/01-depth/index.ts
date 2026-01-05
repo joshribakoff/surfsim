@@ -1,11 +1,13 @@
-// Public API for Layer 01: Depth (Bathymetry)
+// Public API for Layer 01: Depth
 // Ocean floor depth map - defines where waves break based on shallow water
 
-// Model exports - physics/simulation
-export { DEFAULT_BATHYMETRY, getDepth, getMinDepth, getPeakX } from './model';
+// Model exports - depth data creation
+export { createDepthData, initialMatrix } from './model';
 
 // Renderer exports - production rendering
-export { buildBathymetryCache, createBathymetryCacheManager, depthToColor } from './renderer';
-
-// Story exports
-export { PROGRESSION_BATHYMETRY } from './stories/01-bathymetry';
+export {
+  buildBathymetryCache,
+  createBathymetryCacheManager,
+  depthToColor,
+  sampleDepth,
+} from './renderer';

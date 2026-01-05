@@ -1,4 +1,4 @@
-import { createMatrix, drawCircle, toProgression, progressionsToStrip, GRID_SIZE } from '../shared';
+import { createMatrix, drawCircle, toProgression, progressionsToStrip } from '../shared';
 
 export const PROGRESSION_NESTED = toProgression(
   'foam-contours/nested-levels',

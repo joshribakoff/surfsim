@@ -12,7 +12,7 @@ import { createWave } from './waveModel.js';
 import { createSetLullState, DEFAULT_CONFIG } from './setLullModel.js';
 import { createInitialBackgroundState, BACKGROUND_CONFIG } from './backgroundWaveModel.js';
 import { createEnergyField, FIELD_HEIGHT, FIELD_WIDTH } from './energyFieldModel.js';
-import { DEFAULT_BATHYMETRY } from './bathymetryModel.js';
+import { createDepthData } from '../model/01-depth/model.js';
 import { createFoamGrids } from './foamGridModel.js';
 import { createVelocityField } from '../model/03-velocity/model.js';
 import { createHeightField } from '../model/04-height/model.js';
@@ -82,8 +82,10 @@ export function createInitialState() {
     backgroundConfig: BACKGROUND_CONFIG,
     backgroundState: createInitialBackgroundState(BACKGROUND_CONFIG),
 
-    // Bathymetry
-    bathymetry: DEFAULT_BATHYMETRY,
+    // Depth model (Layer 01) - Float32Array of depth values in meters
+    depth: createDepthData(30, FIELD_WIDTH, FIELD_HEIGHT),
+    depthWidth: FIELD_WIDTH,
+    depthHeight: FIELD_HEIGHT,
 
     // Player
     playerProxy: null,

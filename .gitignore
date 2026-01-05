@@ -19,3 +19,7 @@ dist-stories
 .npm/
 .config/
 .nx/
+
+# Generated reports
+jscpd-report/
+.ai/

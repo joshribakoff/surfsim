@@ -6,7 +6,7 @@
 // As waves slow down in shallow water, they grow taller.
 // This is the physical basis of wave breaking.
 
-import { assertSameSize } from '../../state/bathymetryModel';
+import { assertSameSize } from '../../utils/assertSameSize';
 
 export const FIELD_WIDTH = 60;
 export const FIELD_HEIGHT = 40;

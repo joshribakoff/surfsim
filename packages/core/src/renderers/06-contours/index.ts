@@ -13,7 +13,6 @@ export {
   snapshotToContourFrame,
   progressionsToStrip,
 } from './shared';
-export type { Matrix } from './shared';
 
 // Individual story exports
 export {

@@ -6,11 +6,6 @@
  */
 
 /**
- * Standard matrix type used across all layers
- */
-export type Matrix = number[][];
-
-/**
  * Standard grid dimensions for the model pipeline (8x10).
  * Most model layers use these dimensions for composability.
  */
@@ -31,29 +26,37 @@ export const GRID_16x16 = { width: 16, height: 16 };
 export const STATIC_CAPTURE = [0];
 
 /**
- * Create a zero-filled matrix with standard 8x10 dimensions
+ * Create a zero-filled Float32Array with standard 8x10 dimensions
  */
-export function createMatrix(): Matrix {
-  return Array.from({ length: GRID_HEIGHT }, () => Array(GRID_WIDTH).fill(0));
+export function createMatrix(): Float32Array {
+  return new Float32Array(GRID_WIDTH * GRID_HEIGHT);
 }
 
 /**
- * Create a zero-filled matrix with custom dimensions
+ * Create a zero-filled Float32Array with custom dimensions
  */
-export function createMatrixWithSize(width: number, height: number): Matrix {
-  return Array.from({ length: height }, () => Array(width).fill(0));
+export function createMatrixWithSize(width: number, height: number): Float32Array {
+  return new Float32Array(width * height);
 }
 
 /**
- * Create a matrix filled with a specific value (standard 8x10 dimensions)
+ * Create a Float32Array filled with a specific value (standard 8x10 dimensions)
  */
-export function createFilledMatrix(value: number): Matrix {
-  return Array.from({ length: GRID_HEIGHT }, () => Array(GRID_WIDTH).fill(value));
+export function createFilledMatrix(value: number): Float32Array {
+  const data = new Float32Array(GRID_WIDTH * GRID_HEIGHT);
+  data.fill(value);
+  return data;
 }
 
 /**
- * Create a matrix filled with a specific value and custom dimensions
+ * Create a Float32Array filled with a specific value and custom dimensions
  */
-export function createFilledMatrixWithSize(value: number, width: number, height: number): Matrix {
-  return Array.from({ length: height }, () => Array(width).fill(value));
+export function createFilledMatrixWithSize(
+  value: number,
+  width: number,
+  height: number
+): Float32Array {
+  const data = new Float32Array(width * height);
+  data.fill(value);
+  return data;
 }

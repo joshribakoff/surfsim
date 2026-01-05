@@ -2,10 +2,14 @@
 
 import { describe, it, expect } from 'vitest';
 import { createAIState, updateAIPlayer, AI_STATE, AI_MODE } from './aiPlayerModel.js';
-import { DEFAULT_BATHYMETRY } from '@surf/core/src/state/bathymetryModel.js';
+import { createDepthData } from '@surf/core/src/model/01-depth/model.js';
 import { createFoamGrids } from '@surf/core/src/state/foamGridModel.js';
 
-// Use real bathymetry config - same as the game
+// Test depth data
+const TEST_WIDTH = 60;
+const TEST_HEIGHT = 40;
+const testDepth = createDepthData(TEST_WIDTH, TEST_HEIGHT);
+
 function createMockWorld(overrides = {}) {
   const { foam, energyTransfer } = createFoamGrids();
   return {
@@ -14,7 +18,9 @@ function createMockWorld(overrides = {}) {
     foamGrid: foam,
     energyTransferGrid: energyTransfer,
     gameTime: 0,
-    bathymetry: DEFAULT_BATHYMETRY,
+    depth: testDepth,
+    depthWidth: TEST_WIDTH,
+    depthHeight: TEST_HEIGHT,
     ...overrides,
   };
 }
@@ -29,8 +35,8 @@ const OCEAN_TOP = 0;
 const OCEAN_BOTTOM = 500;
 const TRAVEL_DURATION = 10000;
 
-// Derived from real bathymetry config
-const PEAK_X = DEFAULT_BATHYMETRY.peakX * CANVAS_WIDTH; // 0.35 * 800 = 280
+// Peak is approximately center (where channel is in the simple depth model)
+const PEAK_X = 0.5 * CANVAS_WIDTH; // Center of screen
 
 describe('AI Player Model', () => {
   describe('createAIState', () => {

@@ -17,7 +17,6 @@ declare global {
 
 import { WAVE_TYPE } from '@surf/core/src/state/waveModel.js';
 import { createBathymetryCacheManager } from '@surf/core/src/model/01-depth/index.js';
-import { createDepthField } from '@surf/core/src/state/bathymetryModel.js';
 import { getOceanBounds, calculateTravelDuration } from '@surf/core/src/render/coordinates.js';
 import {
   saveGameState,
@@ -69,31 +68,7 @@ const ctx = canvas.getContext('2d');
 // Bathymetry cache manager (Plan 130) - handles caching + invalidation
 const bathymetryCache = createBathymetryCacheManager();
 
-// Depth field cache (Plan 170) - pre-computed depth values for model functions
-let cachedDepthField: Float32Array | null = null;
-let cachedBathymetryRef: typeof world.bathymetry | null = null;
-let cachedFieldWidth = 0;
-let cachedFieldHeight = 0;
-
-function getDepthField(
-  bathymetry: typeof world.bathymetry,
-  width: number,
-  gridHeight: number
-): Float32Array {
-  if (
-    cachedDepthField &&
-    cachedBathymetryRef === bathymetry &&
-    cachedFieldWidth === width &&
-    cachedFieldHeight === gridHeight
-  ) {
-    return cachedDepthField;
-  }
-  cachedDepthField = createDepthField(width, gridHeight, bathymetry);
-  cachedBathymetryRef = bathymetry;
-  cachedFieldWidth = width;
-  cachedFieldHeight = gridHeight;
-  return cachedDepthField;
-}
+// Depth field accessor - now comes from store (created in eventStore.ts)
 
 // Make canvas fill the screen
 function resize() {
@@ -247,10 +222,8 @@ function update(deltaTime) {
 
   // Update energy field (Plan 140) even when not rendered; rendering is toggled separately
   const { oceanBottom } = getOceanBounds(canvas.height, world.shoreHeight);
-  const { width, gridHeight } = world.energyField;
-  const depthData = getDepthField(world.bathymetry, width, gridHeight);
   // Pass null for velocityField - will use fallback speed calculation from depth
-  updateEnergyField(world.energyField, null, depthData, scaledDelta, {
+  updateEnergyField(world.energyField, null, world.depth, scaledDelta, {
     depthDampingCoefficient: toggles.depthDampingCoefficient ?? 1.5,
     depthDampingExponent: toggles.depthDampingExponent ?? 2.0,
   });
@@ -264,7 +237,7 @@ function update(deltaTime) {
       heightField: world.heightField,
       foam: world.layerFoamField,
     },
-    depthData,
+    world.depth,
     scaledDelta,
     {
       depthDampingCoefficient: toggles.depthDampingCoefficient ?? 1.5,
@@ -306,7 +279,9 @@ function update(deltaTime) {
     world.gameTime,
     travelDuration,
     bufferDuration,
-    world.bathymetry
+    world.depth,
+    world.depthWidth,
+    world.depthHeight
   );
   store.dispatch({ type: EventType.WAVES_UPDATE, waves: updatedWaves });
   world = store.getState();
@@ -314,7 +289,9 @@ function update(deltaTime) {
   // Foam grid update (grid-based pipeline)
   const foamState = {
     gameTime: world.gameTime,
-    bathymetry: world.bathymetry,
+    depth: world.depth,
+    depthWidth: world.depthWidth,
+    depthHeight: world.depthHeight,
     energyField: world.energyField,
     foamGrid: world.foamGrid,
     energyTransferGrid: world.energyTransferGrid,
@@ -374,10 +351,17 @@ function draw() {
   ctx.fillStyle = colors.ocean;
   ctx.fillRect(0, 0, w, h);
 
-  // Draw bathymetry depth heat map UNDER waves (toggle with 'B' key)
-  // Uses cache manager from render/bathymetryRenderer.js (Plan 130)
+  // Draw depth heat map UNDER waves (toggle with 'B' key)
+  // Uses cache manager from model/01-depth/renderer.ts (Plan 130)
   if (toggles.showBathymetry) {
-    const cache = bathymetryCache.get(w, oceanTop, oceanBottom, world.bathymetry);
+    const cache = bathymetryCache.get(
+      w,
+      oceanTop,
+      oceanBottom,
+      world.depth,
+      world.depthWidth,
+      world.depthHeight
+    );
     ctx.drawImage(cache, 0, 0);
   }
 

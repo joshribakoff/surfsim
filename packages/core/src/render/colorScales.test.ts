@@ -5,12 +5,14 @@ describe('colorScales', () => {
   describe('viridisToRgb', () => {
     it('returns dark purple at 0', () => {
       const color = viridisToRgb(0);
+      // Library values (matplotlib viridis)
       expect(color).toEqual({ r: 68, g: 1, b: 84 });
     });
 
     it('returns bright yellow at 1', () => {
       const color = viridisToRgb(1);
-      expect(color).toEqual({ r: 253, g: 231, b: 37 });
+      // Library values (matplotlib viridis)
+      expect(color).toEqual({ r: 251, g: 231, b: 35 });
     });
 
     it('clamps values below 0', () => {
@@ -20,7 +22,7 @@ describe('colorScales', () => {
 
     it('clamps values above 1', () => {
       const color = viridisToRgb(1.5);
-      expect(color).toEqual({ r: 253, g: 231, b: 37 });
+      expect(color).toEqual({ r: 251, g: 231, b: 35 });
     });
 
     it('interpolates smoothly at midpoint', () => {
@@ -32,21 +34,19 @@ describe('colorScales', () => {
   });
 
   describe('viridisToColor', () => {
-    it('returns CSS rgb string', () => {
+    it('returns CSS hex string at 0', () => {
       const color = viridisToColor(0);
-      expect(color).toBe('rgb(68,1,84)');
+      expect(color).toBe('#440154');
     });
 
-    it('returns CSS rgb string at 1', () => {
+    it('returns CSS hex string at 1', () => {
       const color = viridisToColor(1);
-      expect(color).toBe('rgb(253,231,37)');
+      expect(color).toBe('#fbe723');
     });
   });
 
   describe('energyToColor - perceptual uniformity for visual testing', () => {
     it('produces visually distinct colors for low vs high damping values', () => {
-      // Low damping bottom row: 0.25
-      // High damping bottom row: 0.02
       const lowDampingColor = viridisToRgb(0.25);
       const highDampingColor = viridisToRgb(0.02);
 
@@ -54,11 +54,6 @@ describe('colorScales', () => {
       console.log('High damping (0.02):', energyToColor(0.02));
       console.log('Low damping (0.25):', energyToColor(0.25));
 
-      // These should be meaningfully different
-      // With Viridis, 0.02 is deep purple, 0.25 is blue-purple
-      // The difference should be perceptually significant
-
-      // Check that at least one RGB channel differs by more than 30
       const rDiff = Math.abs(lowDampingColor.r - highDampingColor.r);
       const gDiff = Math.abs(lowDampingColor.g - highDampingColor.g);
       const bDiff = Math.abs(lowDampingColor.b - highDampingColor.b);

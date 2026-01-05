@@ -5,8 +5,20 @@ import {
   matrixToAscii,
   asciiToMatrix,
   progressionToAscii,
-  matricesMatchAscii,
 } from './asciiMatrix.js';
+
+// Helper to create Float32Array from 2D array
+function createMatrix(rows: number[][]): { data: Float32Array; width: number; height: number } {
+  const height = rows.length;
+  const width = rows[0]?.length ?? 0;
+  const data = new Float32Array(width * height);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      data[y * width + x] = rows[y][x];
+    }
+  }
+  return { data, width, height };
+}
 
 describe('ASCII Matrix Format', () => {
   describe('valueToChar', () => {
@@ -75,62 +87,56 @@ describe('ASCII Matrix Format', () => {
 
   describe('matrixToAscii', () => {
     it('converts a simple matrix', () => {
-      const matrix = [
+      const { data, width, height } = createMatrix([
         [1.0, 1.0, 1.0],
         [0.0, 0.0, 0.0],
-      ];
-      expect(matrixToAscii(matrix)).toBe('FFF\n---');
+      ]);
+      expect(matrixToAscii(data, width, height)).toBe('FFF\n---');
     });
 
     it('converts a gradient matrix', () => {
-      const matrix = [
+      const { data, width, height } = createMatrix([
         [1.0, 0.8, 0.6],
         [0.4, 0.2, 0.0],
-      ];
-      expect(matrixToAscii(matrix)).toBe('FDB\n42-');
+      ]);
+      expect(matrixToAscii(data, width, height)).toBe('FDB\n42-');
     });
   });
 
   describe('asciiToMatrix', () => {
     it('parses a simple matrix', () => {
-      const ascii = 'FFF\n---';
-      expect(asciiToMatrix(ascii)).toEqual([
-        [1.0, 1.0, 1.0],
-        [0, 0, 0],
-      ]);
+      const { data, width, height } = asciiToMatrix('FFF\n---');
+      expect(width).toBe(3);
+      expect(height).toBe(2);
+      expect(Array.from(data)).toEqual([1.0, 1.0, 1.0, 0, 0, 0]);
     });
 
     it('round-trips with matrixToAscii', () => {
-      const original = [
+      const original = createMatrix([
         [1.0, 0.8, 0.6],
         [0.4, 0.2, 0.0],
-      ];
-      const ascii = matrixToAscii(original);
+      ]);
+      const ascii = matrixToAscii(original.data, original.width, original.height);
       const restored = asciiToMatrix(ascii);
       // Values may differ slightly due to bucketing, but chars should match
-      expect(matrixToAscii(restored)).toBe(ascii);
+      expect(matrixToAscii(restored.data, restored.width, restored.height)).toBe(ascii);
     });
   });
 
   describe('progressionToAscii', () => {
     it('formats multiple frames side by side', () => {
+      const m1 = createMatrix([
+        [1.0, 1.0, 1.0],
+        [0.0, 0.0, 0.0],
+      ]);
+      const m2 = createMatrix([
+        [0.6, 0.6, 0.6],
+        [0.4, 0.4, 0.4],
+      ]);
+
       const snapshots = [
-        {
-          time: 0,
-          label: 't=0s',
-          matrix: [
-            [1.0, 1.0, 1.0],
-            [0.0, 0.0, 0.0],
-          ],
-        },
-        {
-          time: 1,
-          label: 't=1s',
-          matrix: [
-            [0.6, 0.6, 0.6],
-            [0.4, 0.4, 0.4],
-          ],
-        },
+        { time: 0, label: 't=0s', matrix: m1.data, width: m1.width, height: m1.height },
+        { time: 1, label: 't=1s', matrix: m2.data, width: m2.width, height: m2.height },
       ];
 
       const ascii = progressionToAscii(snapshots);
@@ -143,40 +149,6 @@ describe('ASCII Matrix Format', () => {
       expect(lines[1]).toContain('BBB');
       expect(lines[2]).toContain('---');
       expect(lines[2]).toContain('444');
-    });
-  });
-
-  describe('matricesMatchAscii', () => {
-    it('returns true for identical matrices', () => {
-      const a = [
-        [1.0, 0.5],
-        [0.2, 0.0],
-      ];
-      expect(matricesMatchAscii(a, a)).toBe(true);
-    });
-
-    it('returns true for matrices that map to same ASCII', () => {
-      const a = [
-        [0.61, 0.48],
-        [0.22, 0.02],
-      ];
-      const b = [
-        [0.6, 0.5],
-        [0.2, 0.0],
-      ];
-      expect(matricesMatchAscii(a, b)).toBe(true);
-    });
-
-    it('returns false for different matrices', () => {
-      const a = [[1.0, 0.5]];
-      const b = [[0.5, 1.0]];
-      expect(matricesMatchAscii(a, b)).toBe(false);
-    });
-
-    it('returns false for different dimensions', () => {
-      const a = [[1.0, 0.5]];
-      const b = [[1.0]];
-      expect(matricesMatchAscii(a, b)).toBe(false);
     });
   });
 });

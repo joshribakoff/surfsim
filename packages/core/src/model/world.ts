@@ -10,7 +10,7 @@
 // 4. Breaking detection → drain energy → spawn foam
 // 5. Foam internal dynamics (decay, diffusion, advection)
 
-import { assertSameSize } from '../state/bathymetryModel';
+import { assertSameSize } from '../utils/assertSameSize';
 import { updateVelocityField, type VelocityField } from './03-velocity/model';
 import { updateEnergyField, drainEnergyAt } from './02-energy/model';
 import { updateHeightField, type HeightField } from './04-height/model';

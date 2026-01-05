@@ -1,4 +1,4 @@
-import { createMatrix, toProgression, progressionsToStrip, GRID_SIZE } from '../shared';
+import { createMatrix, toProgression, progressionsToStrip } from '../shared';
 
 export const PROGRESSION_EMPTY = toProgression(
   'foam-contours/empty',
@@ -13,11 +13,7 @@ export const PROGRESSION_FULL = toProgression(
   'All cells saturated above contour thresholds',
   () => {
     const matrix = createMatrix();
-    for (let y = 0; y < GRID_SIZE; y++) {
-      for (let x = 0; x < GRID_SIZE; x++) {
-        matrix[y][x] = 0.9;
-      }
-    }
+    matrix.fill(0.9);
     return matrix;
   }
 );

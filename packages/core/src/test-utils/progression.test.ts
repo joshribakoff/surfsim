@@ -6,14 +6,6 @@
  * 1. Unit test assertions (data correctness)
  * 2. Visual regression tests (render correctness)
  * 3. MDX documentation (explanations)
- *
- * If defineProgression(), captureSnapshots(), or the registry are broken,
- * ALL progression-based tests become meaningless. A broken framework could:
- * - Silently skip time points
- * - Corrupt snapshot data
- * - Fail to register progressions for visual tests
- *
- * These tests must pass before any progression-based tests are trustworthy.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
@@ -23,12 +15,15 @@ import {
   getProgressionRegistry,
   getProgression,
   clearProgressionRegistry,
-  matrixToField,
-  fieldToMatrix,
 } from './progression.js';
+import { GRID_WIDTH, GRID_HEIGHT } from './matrix.js';
+
+// Helper to create Float32Array from 2D array for test convenience
+function toFloat32(arr: number[][]): Float32Array {
+  return new Float32Array(arr.flat());
+}
 
 describe('progression framework', () => {
-  // Clear registry between tests to avoid cross-contamination
   beforeEach(() => {
     clearProgressionRegistry();
   });
@@ -38,14 +33,14 @@ describe('progression framework', () => {
       const progression = defineProgression({
         id: 'test/basic',
         description: 'Test progression',
-        initialMatrix: [
+        initialMatrix: toFloat32([
           [1, 0],
           [0, 0],
-        ],
+        ]),
         captureTimes: [0, 1],
         updateFn: (field, _dt) => {
           // Simple propagation: copy row 0 to row 1
-          field.height[field.width] = field.height[0] * 0.5;
+          field[GRID_WIDTH] = field[0] * 0.5;
         },
       });
 
@@ -59,7 +54,7 @@ describe('progression framework', () => {
       expect(() =>
         defineProgression({
           description: 'No ID',
-          initialMatrix: [[1]],
+          initialMatrix: new Float32Array([1]),
           updateFn: () => {},
         })
       ).toThrow('requires an id');
@@ -79,20 +74,19 @@ describe('progression framework', () => {
       const progression = defineProgression({
         id: 'test/static',
         description: 'Static progression with no update function',
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0],
       });
 
-      // Static progressions should still capture at t=0
       expect(progression.snapshots).toHaveLength(1);
-      expect(progression.snapshots[0].matrix).toEqual([[1]]);
+      expect(progression.snapshots[0].matrix[0]).toBe(1);
     });
 
     it('registers progression in global registry', () => {
       defineProgression({
         id: 'test/registered',
         description: 'Should be registered',
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0],
         updateFn: () => {},
       });
@@ -105,10 +99,10 @@ describe('progression framework', () => {
       const progression = defineProgression({
         id: 'test/at-helper',
         description: 'Test at() helper',
-        initialMatrix: [
+        initialMatrix: toFloat32([
           [1, 2],
           [0, 0],
-        ],
+        ]),
         captureTimes: [0, 1, 2],
         updateFn: () => {},
       });
@@ -122,23 +116,23 @@ describe('progression framework', () => {
       const progression = defineProgression({
         id: 'test/matrix-at',
         description: 'Test matrixAt() helper',
-        initialMatrix: [
+        initialMatrix: toFloat32([
           [5, 5],
           [0, 0],
-        ],
+        ]),
         captureTimes: [0],
         updateFn: () => {},
       });
 
       const matrix = progression.matrixAt(0);
-      expect(matrix[0][0]).toBe(5);
+      expect(matrix[0]).toBe(5); // flat indexing
     });
 
     it('stores metadata for documentation', () => {
       const progression = defineProgression({
         id: 'test/metadata',
         description: 'Has metadata',
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0],
         updateFn: () => {},
         metadata: {
@@ -155,26 +149,26 @@ describe('progression framework', () => {
   describe('captureSnapshots', () => {
     it('captures initial state at t=0', () => {
       const snapshots = captureSnapshots({
-        initialMatrix: [[1, 2, 3]],
+        initialMatrix: new Float32Array([1, 2, 3]),
         captureTimes: [0],
         updateFn: () => {},
       });
 
       expect(snapshots).toHaveLength(1);
       expect(snapshots[0].time).toBe(0);
-      expect(snapshots[0].matrix[0]).toEqual([1, 2, 3]);
+      expect(Array.from(snapshots[0].matrix)).toEqual([1, 2, 3]);
     });
 
     it('runs simulation and captures at specified times', () => {
       let updateCount = 0;
 
       const snapshots = captureSnapshots({
-        initialMatrix: [[10]],
+        initialMatrix: new Float32Array([10]),
         captureTimes: [0, 1],
         updateFn: (field, _dt) => {
           updateCount++;
-          // Decay by 10% each frame
-          field.height[0] *= 0.99;
+          // Decay by 1% each frame
+          field[0] *= 0.99;
         },
       });
 
@@ -183,16 +177,16 @@ describe('progression framework', () => {
       expect(updateCount).toBeLessThan(70);
 
       // t=0 should have original value
-      expect(snapshots[0].matrix[0][0]).toBe(10);
+      expect(snapshots[0].matrix[0]).toBe(10);
 
       // t=1 should show decay (10 * 0.99^60 ≈ 5.47)
-      expect(snapshots[1].matrix[0][0]).toBeLessThan(10);
-      expect(snapshots[1].matrix[0][0]).toBeGreaterThan(4);
+      expect(snapshots[1].matrix[0]).toBeLessThan(10);
+      expect(snapshots[1].matrix[0]).toBeGreaterThan(4);
     });
 
     it('sorts capture times', () => {
       const snapshots = captureSnapshots({
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [2, 0, 1], // Out of order
         updateFn: () => {},
       });
@@ -204,7 +198,7 @@ describe('progression framework', () => {
 
     it('generates labels from time', () => {
       const snapshots = captureSnapshots({
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0, 1, 2],
         updateFn: () => {},
       });
@@ -216,7 +210,7 @@ describe('progression framework', () => {
 
     it('handles non-integer capture times', () => {
       const snapshots = captureSnapshots({
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0, 0.5, 1.5],
         updateFn: () => {},
       });
@@ -233,7 +227,7 @@ describe('progression framework', () => {
       let eventTime = -1;
 
       const snapshots = captureWithEvents({
-        initialMatrix: [[10, 10]],
+        initialMatrix: new Float32Array([10, 10]),
         captureTimes: [0, 1, 2],
         updateFn: () => {},
         events: [
@@ -242,7 +236,7 @@ describe('progression framework', () => {
             action: (field) => {
               eventFired = true;
               eventTime = 1;
-              field.height[0] = 0; // Drain left cell
+              field[0] = 0; // Drain left cell
             },
           },
         ],
@@ -252,15 +246,15 @@ describe('progression framework', () => {
       expect(eventTime).toBe(1);
 
       // Before event (t=0): both cells have energy
-      expect(snapshots[0].matrix[0][0]).toBe(10);
+      expect(snapshots[0].matrix[0]).toBe(10);
 
       // After event (t=1): left cell drained
-      expect(snapshots[1].matrix[0][0]).toBe(0);
+      expect(snapshots[1].matrix[0]).toBe(0);
     });
 
     it('includes event label in snapshot', () => {
       const snapshots = captureWithEvents({
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0, 1],
         updateFn: () => {},
         events: [
@@ -276,10 +270,10 @@ describe('progression framework', () => {
     });
 
     it('handles multiple events', () => {
-      const eventOrder = [];
+      const eventOrder: string[] = [];
 
       captureWithEvents({
-        initialMatrix: [[100]],
+        initialMatrix: new Float32Array([100]),
         captureTimes: [0, 1, 2, 3],
         updateFn: () => {},
         events: [
@@ -292,10 +286,10 @@ describe('progression framework', () => {
     });
 
     it('sorts events by time', () => {
-      const eventOrder = [];
+      const eventOrder: string[] = [];
 
       captureWithEvents({
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0, 3],
         updateFn: () => {},
         events: [
@@ -313,7 +307,7 @@ describe('progression framework', () => {
       defineProgression({
         id: 'test/get-by-id',
         description: 'Find me',
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0],
         updateFn: () => {},
       });
@@ -331,7 +325,7 @@ describe('progression framework', () => {
       defineProgression({
         id: 'test/to-clear',
         description: 'Will be cleared',
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0],
         updateFn: () => {},
       });
@@ -348,7 +342,7 @@ describe('progression framework', () => {
       defineProgression({
         id: 'test/overwrite',
         description: 'Original',
-        initialMatrix: [[1]],
+        initialMatrix: new Float32Array([1]),
         captureTimes: [0],
         updateFn: () => {},
       });
@@ -356,67 +350,43 @@ describe('progression framework', () => {
       defineProgression({
         id: 'test/overwrite',
         description: 'Replacement',
-        initialMatrix: [[2]],
+        initialMatrix: new Float32Array([2]),
         captureTimes: [0],
         updateFn: () => {},
       });
 
       const found = getProgression('test/overwrite');
       expect(found.description).toBe('Replacement');
-      expect(found.initialMatrix[0][0]).toBe(2);
-    });
-  });
-
-  describe('re-exported utilities', () => {
-    it('exports matrixToField from progression.js', () => {
-      const field = matrixToField([
-        [1, 2],
-        [3, 4],
-      ]);
-      expect(field.width).toBe(2);
-      expect(field.gridHeight).toBe(2);
-    });
-
-    it('exports fieldToMatrix from progression.js', () => {
-      const field = {
-        height: new Float32Array([1, 2, 3, 4]),
-        velocity: new Float32Array(4),
-        width: 2,
-        gridHeight: 2,
-      };
-      const matrix = fieldToMatrix(field);
-      expect(matrix).toEqual([
-        [1, 2],
-        [3, 4],
-      ]);
+      expect(found.initialMatrix[0]).toBe(2);
     });
   });
 
   describe('integration: realistic progression', () => {
     it('simulates energy propagation correctly', () => {
-      // Simplified version of the actual energy field propagation
+      const width = 2;
       const progression = defineProgression({
         id: 'test/propagation',
         description: 'Energy moves from row 0 to row 1',
-        initialMatrix: [
-          [1.0, 1.0], // row 0: initial energy
-          [0.0, 0.0], // row 1: empty
-        ],
+        initialMatrix: new Float32Array([
+          1.0,
+          1.0, // row 0: initial energy
+          0.0,
+          0.0, // row 1: empty
+        ]),
         captureTimes: [0, 1],
         updateFn: (field, dt) => {
-          // Simple propagation: blend row 1 with row 0
-          const blendRate = 1.0; // 100% blend per second
+          const blendRate = 1.0;
           const blend = Math.min(1, blendRate * dt);
 
-          for (let x = 0; x < field.width; x++) {
-            const row0 = field.height[x];
-            const row1 = field.height[field.width + x];
+          for (let x = 0; x < width; x++) {
+            const row0 = field[x];
+            const row1 = field[width + x];
 
             // Row 1 receives energy from row 0
-            field.height[field.width + x] = row1 * (1 - blend) + row0 * blend;
+            field[width + x] = row1 * (1 - blend) + row0 * blend;
 
             // Row 0 fades
-            field.height[x] *= 1 - blend * 0.5;
+            field[x] *= 1 - blend * 0.5;
           }
         },
       });
@@ -425,12 +395,12 @@ describe('progression framework', () => {
       const t1 = progression.matrixAt(1);
 
       // t=0: energy only in row 0
-      expect(t0[0][0]).toBe(1.0);
-      expect(t0[1][0]).toBe(0.0);
+      expect(t0[0]).toBe(1.0);
+      expect(t0[2]).toBe(0.0); // row 1, col 0
 
       // t=1: energy has propagated to row 1, row 0 has faded
-      expect(t1[0][0]).toBeLessThan(1.0); // Row 0 faded
-      expect(t1[1][0]).toBeGreaterThan(0.0); // Row 1 received energy
+      expect(t1[0]).toBeLessThan(1.0); // Row 0 faded
+      expect(t1[2]).toBeGreaterThan(0.0); // Row 1 received energy
     });
   });
 });

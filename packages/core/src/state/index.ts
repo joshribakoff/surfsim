@@ -7,7 +7,6 @@
 export * from './waveModel.js';
 export * from './foamModel.js';
 export * from './foamGridModel.js';
-export * from './bathymetryModel.js';
 export * from './energyFieldModel.js';
 export * from './setLullModel.js';
 export * from './backgroundWaveModel.js';

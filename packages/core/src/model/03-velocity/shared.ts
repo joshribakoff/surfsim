@@ -4,8 +4,7 @@
  * Velocity = sqrt(g * depth), slower in shallow water.
  */
 
-export { GRID_WIDTH, GRID_HEIGHT, createMatrix } from '../../test-utils';
-export type { Matrix } from '../../test-utils';
+export { GRID_WIDTH, GRID_HEIGHT } from '../../test-utils';
 
 // Reference speed for normalization (10m deep water)
 export const MAX_SPEED = Math.sqrt(9.81 * 10); // ~9.9 m/s

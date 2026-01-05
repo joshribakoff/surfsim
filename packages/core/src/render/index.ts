@@ -4,12 +4,13 @@
  * Re-exports all rendering functions for clean imports in main.jsx
  */
 
-// Bathymetry rendering
+// Depth rendering (from model/01-depth)
 export {
   buildBathymetryCache,
   depthToColor,
   createBathymetryCacheManager,
-} from './bathymetryRenderer.js';
+  sampleDepth,
+} from '../model/01-depth/renderer.js';
 
 // Wave rendering
 export { WAVE_COLORS, getWaveColors, renderWave, renderWaves } from './waveRenderer.js';
