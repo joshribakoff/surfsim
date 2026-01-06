@@ -9,14 +9,12 @@
  */
 
 // Current schema version - increment when adding/removing/changing settings
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2;
 
 // Settings schema with types and defaults
 export const SETTINGS_SCHEMA = {
   // Display toggles
   showBathymetry: { type: 'boolean', default: false, hotkey: 'b' },
-  showSetWaves: { type: 'boolean', default: true, hotkey: 's' },
-  showBackgroundWaves: { type: 'boolean', default: true, hotkey: 'g' },
   showFoamZones: { type: 'boolean', default: true, hotkey: 'f' },
   showFoamSamples: { type: 'boolean', default: false, hotkey: 'd' },
   showPlayer: { type: 'boolean', default: false, hotkey: 'p' },

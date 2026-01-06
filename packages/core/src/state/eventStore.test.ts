@@ -23,7 +23,6 @@ describe('eventStore', () => {
       expect(state.waves).toEqual([]);
       expect(state.foamRows).toEqual([]);
       expect(state.toggles).toBeDefined();
-      expect(state.toggles.showSetWaves).toBe(true);
       expect(state.toggles.showBathymetry).toBe(false);
     });
 

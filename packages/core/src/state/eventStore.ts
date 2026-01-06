@@ -104,8 +104,6 @@ export function createInitialState() {
     // UI toggles
     toggles: {
       showBathymetry: false,
-      showSetWaves: true,
-      showBackgroundWaves: true,
       showFoamZones: true,
       showFoamSamples: false,
       showPlayer: false,

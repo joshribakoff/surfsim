@@ -167,47 +167,4 @@ test.describe('Set Wave Spawning', () => {
     state = await page.evaluate(() => window.world?.setLullState?.setState);
     expect(state).toBe('LULL');
   });
-
-  test('set wave toggle affects visibility but waves still simulate', async ({ page }) => {
-    await page.addInitScript(() => localStorage.clear());
-    await page.goto('/');
-    await expect(page.locator('#game')).toBeVisible();
-
-    // Wait for world to be available
-    await page.waitForFunction(() => window.world !== undefined);
-
-    // Speed up to get to SET state and spawn waves
-    for (let i = 0; i < 3; i++) {
-      await page.keyboard.press('t');
-    }
-
-    // Wait for set waves to spawn
-    await page.waitForFunction(
-      () => window.world?.waves?.filter((w) => w.type === 'set').length > 0,
-      { timeout: 15000 }
-    );
-
-    // Get count before toggle
-    const countBefore = await page.evaluate(() => {
-      return window.world?.waves?.filter((w) => w.type === 'set').length || 0;
-    });
-
-    // Press 'S' to toggle set wave visibility
-    await page.keyboard.press('s');
-
-    // Check toggle state changed
-    const toggleState = await page.evaluate(() => window.toggles?.showSetWaves);
-    expect(toggleState).toBe(false);
-
-    // Wait a moment for more waves to potentially spawn
-    await page.waitForTimeout(2000);
-
-    // Waves should still exist in the array even if hidden
-    const countAfter = await page.evaluate(() => {
-      return window.world?.waves?.filter((w) => w.type === 'set').length || 0;
-    });
-
-    // Should have at least as many set waves (simulation continues)
-    expect(countAfter).toBeGreaterThanOrEqual(countBefore);
-  });
 });

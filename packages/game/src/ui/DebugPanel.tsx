@@ -58,18 +58,6 @@ export function DebugPanel({
           hotkey="B"
         />
         <Toggle
-          label="Set Waves"
-          checked={toggles.showSetWaves}
-          onChange={() => onToggle('showSetWaves')}
-          hotkey="S"
-        />
-        <Toggle
-          label="Background"
-          checked={toggles.showBackgroundWaves}
-          onChange={() => onToggle('showBackgroundWaves')}
-          hotkey="G"
-        />
-        <Toggle
           label="Energy Field (source)"
           checked={toggles.showEnergyField}
           onChange={() => onToggle('showEnergyField')}

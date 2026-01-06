@@ -57,8 +57,6 @@ const createDefaultProps = (overrides: Record<string, any> = {}) => {
     onTimeScaleChange: overrides.onTimeScaleChange || vi.fn(),
     toggles: overrides.toggles || {
       showBathymetry: true,
-      showSetWaves: true,
-      showBackgroundWaves: false,
       showEnergyField: true,
       showFoamZones: true,
       showFoamSamples: false,
@@ -118,8 +116,6 @@ describe('DebugPanel', () => {
       render(<DebugPanel {...createDefaultProps()} />);
       // Use getAllByText since some labels appear in multiple sections
       expect(screen.getAllByText(/Bathymetry/).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/Set Waves/).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/Background/).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Energy Field/).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Energy Transfer/).length).toBeGreaterThan(0);
       expect(screen.getAllByText(/Player/).length).toBeGreaterThan(0);
@@ -128,8 +124,6 @@ describe('DebugPanel', () => {
     it('shows hotkeys for toggles', () => {
       render(<DebugPanel {...createDefaultProps()} />);
       expect(screen.getByText('B')).toBeInTheDocument();
-      expect(screen.getByText('S')).toBeInTheDocument();
-      expect(screen.getByText('G')).toBeInTheDocument();
       expect(screen.getByText('E')).toBeInTheDocument();
       expect(screen.getByText('F')).toBeInTheDocument();
       expect(screen.getByText('D')).toBeInTheDocument();
@@ -152,8 +146,7 @@ describe('DebugPanel', () => {
     it('shows ON/OFF state correctly', () => {
       const toggles = {
         showBathymetry: true,
-        showSetWaves: false,
-        showBackgroundWaves: false,
+        showEnergyField: false,
         showFoamZones: false,
         showFoamSamples: false,
         showPlayer: false,
@@ -163,7 +156,7 @@ describe('DebugPanel', () => {
       const buttons = screen.getAllByRole('button');
       // First toggle (Bathymetry) should be ON
       expect(buttons[0]).toHaveTextContent('ON');
-      // Second toggle (Set Waves) should be OFF
+      // Second toggle (Energy Field) should be OFF
       expect(buttons[1]).toHaveTextContent('OFF');
     });
 

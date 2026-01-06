@@ -43,8 +43,6 @@ describe('settingsModel', () => {
   describe('SETTINGS_SCHEMA', () => {
     it('has all required toggle settings', () => {
       expect(SETTINGS_SCHEMA.showBathymetry).toBeDefined();
-      expect(SETTINGS_SCHEMA.showSetWaves).toBeDefined();
-      expect(SETTINGS_SCHEMA.showBackgroundWaves).toBeDefined();
       expect(SETTINGS_SCHEMA.showFoamZones).toBeDefined();
       expect(SETTINGS_SCHEMA.showPlayer).toBeDefined();
     });
@@ -73,7 +71,6 @@ describe('settingsModel', () => {
       const defaults = getDefaultSettings();
 
       expect(defaults.showBathymetry).toBe(false);
-      expect(defaults.showSetWaves).toBe(true);
       expect(defaults.timeScale).toBe(1);
     });
   });
@@ -106,7 +103,7 @@ describe('settingsModel', () => {
       const settings = loadSettings();
 
       expect(settings.showBathymetry).toBe(false);
-      expect(settings.showSetWaves).toBe(true);
+      expect(settings.showFoamZones).toBe(true);
     });
 
     it('loads stored values', () => {
@@ -115,14 +112,14 @@ describe('settingsModel', () => {
         JSON.stringify({
           _version: SETTINGS_VERSION,
           showBathymetry: true,
-          showSetWaves: false,
+          showFoamZones: false,
         })
       );
 
       const settings = loadSettings();
 
       expect(settings.showBathymetry).toBe(true);
-      expect(settings.showSetWaves).toBe(false);
+      expect(settings.showFoamZones).toBe(false);
     });
 
     it('fills missing keys with defaults', () => {
@@ -131,14 +128,14 @@ describe('settingsModel', () => {
         JSON.stringify({
           _version: SETTINGS_VERSION,
           showBathymetry: true,
-          // showSetWaves intentionally missing
+          // showFoamZones intentionally missing
         })
       );
 
       const settings = loadSettings();
 
       expect(settings.showBathymetry).toBe(true);
-      expect(settings.showSetWaves).toBe(true); // Default
+      expect(settings.showFoamZones).toBe(true); // Default
     });
 
     it('ignores invalid stored values', () => {
@@ -147,14 +144,14 @@ describe('settingsModel', () => {
         JSON.stringify({
           _version: SETTINGS_VERSION,
           showBathymetry: 'not a boolean',
-          showSetWaves: true,
+          showFoamZones: true,
         })
       );
 
       const settings = loadSettings();
 
       expect(settings.showBathymetry).toBe(false); // Default because invalid
-      expect(settings.showSetWaves).toBe(true);
+      expect(settings.showFoamZones).toBe(true);
     });
 
     it('handles corrupted JSON', () => {
