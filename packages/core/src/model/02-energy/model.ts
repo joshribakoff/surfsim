@@ -13,14 +13,22 @@ import { getWaveSpeed, type VelocityField } from '../03-velocity/model';
 import { GRID_WIDTH, GRID_HEIGHT } from '../../test-utils';
 
 /**
- * Inject energy pulse at horizon row (accumulates with existing energy).
+ * Inject energy pulse at horizon (accumulates with existing energy).
  * @param matrix - Energy field as flat Float32Array
  * @param width - Grid width (columns)
  * @param energyKJ - Energy in kilojoules (50-2000 typical range)
+ * @param thickness - Number of rows to spread energy across (default 2)
  */
-export function injectEnergyPulse(matrix: Float32Array, width: number, energyKJ: number): void {
-  for (let col = 0; col < width; col++) {
-    matrix[col] += energyKJ;
+export function injectEnergyPulse(
+  matrix: Float32Array,
+  width: number,
+  energyKJ: number,
+  thickness: number = 2
+): void {
+  for (let row = 0; row < thickness; row++) {
+    for (let col = 0; col < width; col++) {
+      matrix[row * width + col] += energyKJ;
+    }
   }
 }
 
@@ -35,7 +43,7 @@ export function initialMatrix(): Float32Array {
 
 // Grid resolution - balance between accuracy and performance
 export const FIELD_WIDTH = 60; // X resolution (across screen)
-export const FIELD_HEIGHT = 40; // Y resolution (horizon to shore)
+export const FIELD_HEIGHT = 80; // Y resolution (horizon to shore) - doubled for smoother animation
 
 // Physical dimensions (meters)
 export const GRID_PHYSICAL_HEIGHT = 200; // Distance from horizon to shore in meters

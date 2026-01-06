@@ -8,7 +8,7 @@
 // - Advection: drift toward shore / longshore current
 
 export const FIELD_WIDTH = 60;
-export const FIELD_HEIGHT = 40;
+export const FIELD_HEIGHT = 80;
 
 export interface FoamField {
   intensity: Float32Array;
