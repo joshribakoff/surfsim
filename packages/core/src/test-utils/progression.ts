@@ -9,7 +9,7 @@
  * The key insight: define the progression ONCE, use it THREE ways.
  */
 
-import { matrixToField, fieldToMatrix } from './matrixField.js';
+import { GRID_WIDTH, GRID_HEIGHT } from './matrix.js';
 
 // Registry of all defined progressions (for discovery by visual test runner)
 const progressionRegistry = new Map();
@@ -20,8 +20,8 @@ const progressionRegistry = new Map();
  * @param {object} config - Progression configuration
  * @param {string} config.id - Unique identifier (e.g., 'energy-field/no-damping')
  * @param {string} config.description - Human-readable description
- * @param {number[][]} config.initialMatrix - Initial state as 2D matrix
- * @param {function} config.updateFn - (field, dt) => void - Simulation update function
+ * @param {Float32Array} config.initialMatrix - Initial state as Float32Array
+ * @param {function} config.updateFn - (field, prevTime, currTime) => void - Simulation update function
  * @param {number[]} config.captureTimes - Times (in seconds) to capture snapshots
  * @param {function} [config.renderFn] - Optional render function for visual tests
  * @param {object} [config.metadata] - Optional metadata (parameters, formula, etc.)
@@ -32,10 +32,12 @@ export function defineProgression(config) {
     id,
     description,
     initialMatrix,
-    updateFn,
+    updateFn = null,
     captureTimes = [0, 1, 2, 3, 4, 5],
     renderFn = null,
     metadata = {},
+    width,
+    height,
   } = config;
 
   if (!id) {
@@ -46,15 +48,14 @@ export function defineProgression(config) {
     throw new Error('defineProgression requires an initialMatrix');
   }
 
-  if (!updateFn) {
-    throw new Error('defineProgression requires an updateFn');
-  }
-
   // Capture snapshots by running the simulation
+  // For static progressions (no updateFn), provide a no-op
   const snapshots = captureSnapshots({
     initialMatrix,
-    updateFn,
+    updateFn: updateFn ?? (() => {}),
     captureTimes,
+    width,
+    height,
   });
 
   const progression = {
@@ -89,16 +90,21 @@ export function defineProgression(config) {
  * Run simulation and capture snapshots at specified times
  *
  * @param {object} options - Capture options
- * @param {number[][]} options.initialMatrix - Initial state
- * @param {function} options.updateFn - (field, dt) => void
+ * @param {Float32Array} options.initialMatrix - Initial state
+ * @param {function} options.updateFn - (field, prevTime, currTime) => void
  * @param {number[]} options.captureTimes - Times to capture
  * @param {number} [options.dt] - Time step (default: 1/60)
  * @returns {object[]} Array of { time, matrix, label } snapshots
  */
 export function captureSnapshots(options) {
-  const { initialMatrix, updateFn, captureTimes, dt = 1 / 60 } = options;
+  const { initialMatrix, updateFn, captureTimes, dt = 1 / 60, width, height } = options;
 
-  const field = matrixToField(initialMatrix);
+  // Use provided dimensions or fall back to defaults
+  const snapshotWidth = width ?? GRID_WIDTH;
+  const snapshotHeight = height ?? GRID_HEIGHT;
+
+  // Create mutable copy of the model for simulation
+  const model = new Float32Array(initialMatrix);
   const snapshots = [];
   let currentTime = 0;
   let captureIdx = 0;
@@ -110,7 +116,9 @@ export function captureSnapshots(options) {
   if (sortedTimes[0] === 0) {
     snapshots.push({
       time: 0,
-      matrix: fieldToMatrix(field),
+      matrix: new Float32Array(model),
+      width: snapshotWidth,
+      height: snapshotHeight,
       label: 't=0s',
     });
     captureIdx++;
@@ -121,16 +129,19 @@ export function captureSnapshots(options) {
   const tolerance = dt / 2;
 
   while (captureIdx < sortedTimes.length && currentTime <= maxTime + tolerance) {
-    // Update simulation
-    updateFn(field, dt);
+    // Update simulation - updateFn receives prevTime and currTime
+    const prevTime = currentTime;
     currentTime += dt;
+    updateFn(model, prevTime, currentTime);
 
     // Check if we've reached the next capture time
     const targetTime = sortedTimes[captureIdx];
     if (currentTime >= targetTime - tolerance) {
       snapshots.push({
         time: targetTime,
-        matrix: fieldToMatrix(field),
+        matrix: new Float32Array(model),
+        width: snapshotWidth,
+        height: snapshotHeight,
         label: `t=${targetTime}s`,
       });
       captureIdx++;
@@ -144,17 +155,30 @@ export function captureSnapshots(options) {
  * Run simulation with custom events (e.g., drain at specific time)
  *
  * @param {object} options - Simulation options
- * @param {number[][]} options.initialMatrix - Initial state
- * @param {function} options.updateFn - (field, dt) => void
+ * @param {Float32Array} options.initialMatrix - Initial state
+ * @param {function} options.updateFn - (field, prevTime, currTime) => void
  * @param {number[]} options.captureTimes - Times to capture
  * @param {object[]} [options.events] - Array of { time, action: (field) => void }
  * @param {number} [options.dt] - Time step (default: 1/60)
  * @returns {object[]} Array of snapshots
  */
 export function captureWithEvents(options) {
-  const { initialMatrix, updateFn, captureTimes, events = [], dt = 1 / 60 } = options;
+  const {
+    initialMatrix,
+    updateFn,
+    captureTimes,
+    events = [],
+    dt = 1 / 60,
+    width,
+    height,
+  } = options;
 
-  const field = matrixToField(initialMatrix);
+  // Use provided dimensions or fall back to defaults
+  const snapshotWidth = width ?? GRID_WIDTH;
+  const snapshotHeight = height ?? GRID_HEIGHT;
+
+  // Create mutable copy of the model for simulation
+  const model = new Float32Array(initialMatrix);
   const snapshots = [];
   let currentTime = 0;
   let captureIdx = 0;
@@ -168,7 +192,9 @@ export function captureWithEvents(options) {
   if (sortedTimes[0] === 0) {
     snapshots.push({
       time: 0,
-      matrix: fieldToMatrix(field),
+      matrix: new Float32Array(model),
+      width: snapshotWidth,
+      height: snapshotHeight,
       label: 't=0s',
     });
     captureIdx++;
@@ -178,9 +204,10 @@ export function captureWithEvents(options) {
   const tolerance = dt / 2;
 
   while (captureIdx < sortedTimes.length && currentTime <= maxTime + tolerance) {
-    // Update simulation
-    updateFn(field, dt);
+    // Update simulation - updateFn receives prevTime and currTime
+    const prevTime = currentTime;
     currentTime += dt;
+    updateFn(model, prevTime, currentTime);
 
     // Process events at this time
     while (
@@ -188,7 +215,7 @@ export function captureWithEvents(options) {
       currentTime >= sortedEvents[eventIdx].time - tolerance
     ) {
       const event = sortedEvents[eventIdx];
-      event.action(field);
+      event.action(model);
       eventIdx++;
     }
 
@@ -203,7 +230,9 @@ export function captureWithEvents(options) {
 
       snapshots.push({
         time: targetTime,
-        matrix: fieldToMatrix(field),
+        matrix: new Float32Array(model),
+        width: snapshotWidth,
+        height: snapshotHeight,
         label,
       });
       captureIdx++;
@@ -236,8 +265,3 @@ export function getProgression(id) {
 export function clearProgressionRegistry() {
   progressionRegistry.clear();
 }
-
-/**
- * Re-export matrix utilities for convenience
- */
-export { matrixToField, fieldToMatrix } from './matrixField.js';

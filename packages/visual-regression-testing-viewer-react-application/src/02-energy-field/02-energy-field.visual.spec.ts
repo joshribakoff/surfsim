@@ -1,4 +1,4 @@
-import { defineStripVisualTests } from '../visual-test-helpers';
-import { ENERGY_FIELD_STRIPS } from '@surf/core/src/state/energyFieldProgressions';
+import { defineStoryVisualTests } from '../visual-test-helpers';
 
-defineStripVisualTests(ENERGY_FIELD_STRIPS);
+// ID matches the file path structure: layerPrefix/storyFileName -> 02-energy/02-energy
+defineStoryVisualTests('02-energy', [['02-energy', { id: '02-energy/02-energy' }]]);

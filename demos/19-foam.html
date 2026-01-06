@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Foam/Whitecaps</title>
+    <style>
+        body { margin: 0; background: #000; }
+        canvas { display: block; }
+        .info { position: absolute; top: 10px; left: 10px; color: #fff; font: 12px monospace; background: rgba(0,0,0,0.7); padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <b>Foam/Whitecaps</b><br>
+        Foam appears at wave peaks and<br>
+        high-energy areas. Uses Jacobian<br>
+        to detect wave folding.
+    </div>
+    <canvas id="c"></canvas>
+    <script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const vs = `attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }`;
+
+const fs = `
+precision highp float;
+uniform float time;
+uniform vec2 resolution;
+
+vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+
+float snoise(vec2 v) {
+    const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+    vec2 i = floor(v + dot(v, C.yy));
+    vec2 x0 = v - i + dot(i, C.xx);
+    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+    vec4 x12 = x0.xyxy + C.xxzz;
+    x12.xy -= i1;
+    i = mod289(i);
+    vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+    m = m*m; m = m*m;
+    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+    vec3 h = abs(x) - 0.5;
+    vec3 ox = floor(x + 0.5);
+    vec3 a0 = x - ox;
+    m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+    vec3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+    return 130.0 * dot(m, g);
+}
+
+// Gerstner wave with derivatives for Jacobian
+vec3 gerstnerWithDeriv(vec2 p, float amp, float wl, float speed, vec2 dir, float t) {
+    float k = 6.28318 / wl;
+    float phase = k * dot(dir, p) - speed * t;
+    float steep = 0.5;
+
+    float c = cos(phase);
+    float s = sin(phase);
+
+    // Position
+    float x = steep * amp * dir.x * c;
+    float y = amp * s;
+
+    // Derivative for Jacobian (d(x)/d(p.x))
+    float dx = -steep * amp * dir.x * dir.x * k * s;
+
+    return vec3(x, y, dx);
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution;
+    vec2 p = uv * 6.0 - 3.0;
+    float t = time;
+
+    // Multiple Gerstner waves
+    vec3 w1 = gerstnerWithDeriv(p, 0.15, 1.2, 2.0, normalize(vec2(1.0, 0.2)), t);
+    vec3 w2 = gerstnerWithDeriv(p, 0.1, 0.8, 2.5, normalize(vec2(0.8, 0.4)), t);
+    vec3 w3 = gerstnerWithDeriv(p, 0.08, 0.5, 3.0, normalize(vec2(1.0, -0.1)), t);
+    vec3 w4 = gerstnerWithDeriv(p, 0.12, 1.5, 1.5, normalize(vec2(0.9, 0.3)), t);
+
+    float height = w1.y + w2.y + w3.y + w4.y;
+    float surface = uv.y - 0.5 - height * 0.15;
+
+    // Jacobian determinant - detects wave folding
+    float jacobian = 1.0 + w1.z + w2.z + w3.z + w4.z;
+
+    // Foam appears where jacobian < threshold (wave is folding)
+    float foamThreshold = 0.7;
+    float foam = smoothstep(foamThreshold, foamThreshold - 0.3, jacobian);
+
+    // Additional foam from noise for texture
+    float foamNoise = snoise(p * 10.0 + t) * 0.5 + 0.5;
+    foamNoise *= snoise(p * 20.0 - t * 0.5) * 0.5 + 0.5;
+
+    foam = max(foam, foamNoise * foam * 2.0);
+
+    // Height-based foam (peaks)
+    float heightFoam = smoothstep(0.3, 0.5, height);
+    foam = max(foam, heightFoam * 0.5);
+
+    vec3 color;
+
+    if (surface < 0.0) {
+        // Water color
+        vec3 deepColor = vec3(0.0, 0.08, 0.2);
+        vec3 shallowColor = vec3(0.0, 0.3, 0.5);
+
+        float depth = clamp(-surface * 3.0, 0.0, 1.0);
+        color = mix(shallowColor, deepColor, depth);
+
+        // Add foam
+        vec3 foamColor = vec3(0.9, 0.95, 1.0);
+
+        // Foam texture - bubbly pattern
+        float bubbles = snoise(p * 30.0 + t * 2.0);
+        bubbles = smoothstep(0.3, 0.7, bubbles);
+
+        float foamAlpha = foam * (0.7 + bubbles * 0.3);
+
+        // Foam is brighter at surface
+        foamAlpha *= (1.0 - depth * 0.5);
+
+        color = mix(color, foamColor, foamAlpha);
+
+        // Subsurface glow under foam
+        if (foam > 0.3) {
+            color += vec3(0.1, 0.2, 0.15) * foam * (1.0 - depth);
+        }
+
+    } else {
+        // Sky
+        color = mix(vec3(0.6, 0.75, 0.9), vec3(0.4, 0.6, 0.85), uv.y);
+    }
+
+    gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function createShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, createShader(gl.VERTEX_SHADER, vs));
+gl.attachShader(prog, createShader(gl.FRAGMENT_SHADER, fs));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+
+const pos = gl.getAttribLocation(prog, 'pos');
+gl.enableVertexAttribArray(pos);
+gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+
+const timeLoc = gl.getUniformLocation(prog, 'time');
+const resLoc = gl.getUniformLocation(prog, 'resolution');
+
+function render(t) {
+    gl.uniform1f(timeLoc, t * 0.001);
+    gl.uniform2f(resLoc, canvas.width, canvas.height);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+}
+render(0);
+    </script>
+</body>
+</html>

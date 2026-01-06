@@ -36,6 +36,17 @@ export default [
       'react/jsx-uses-vars': 'error',
       'no-undef': 'off', // TypeScript handles this
       'no-case-declarations': 'off', // Allow const in switch cases
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@src/*'],
+              message: 'Use @surf/core instead of @src/ alias',
+            },
+          ],
+        },
+      ],
     },
   },
   {

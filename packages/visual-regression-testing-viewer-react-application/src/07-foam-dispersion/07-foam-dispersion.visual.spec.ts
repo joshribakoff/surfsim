@@ -1,4 +1,5 @@
-import { defineStripVisualTests } from '../visual-test-helpers';
-import { FOAM_DISPERSION_STRIPS } from '@surf/core/src/render/foamDispersionProgressions';
+// Dispersion stories consolidated into 05-foam layer
+// These visual tests are no longer needed - dispersion is part of foam dynamics
+import { defineStoryVisualTests } from '../visual-test-helpers';
 
-defineStripVisualTests(FOAM_DISPERSION_STRIPS);
+defineStoryVisualTests('05-foam', []);

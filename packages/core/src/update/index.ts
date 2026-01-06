@@ -11,7 +11,6 @@ import {
   getActiveWaves,
   updateWaveRefraction,
   getWaveProgress,
-  isWaveBreaking,
   isWaveBreakingWithEnergy,
   WAVE_TYPE,
 } from '../state/waveModel.js';
@@ -20,16 +19,11 @@ import {
   updateEnergyField,
   getHeightAt,
   drainEnergyAt,
-  injectWavePulse,
-} from '../state/energyFieldModel.js';
+  injectEnergyPulse,
+} from '../model/02-energy/index.js';
 import { accumulateEnergyTransfer, updateFoamLayer } from '../state/foamGridModel.js';
-import {
-  updatePlayerProxy,
-  createPlayerProxy,
-  PLAYER_PROXY_CONFIG,
-} from '../state/playerProxyModel.js';
-import { updateAIPlayer, createAIState } from '../state/aiPlayerModel.js';
-import { getDepth } from '../state/bathymetryModel.js';
+import { createPlayerProxy } from '../state/playerProxyModel.js';
+import { sampleDepth } from '../model/01-depth/renderer.js';
 import { EventType } from '../state/eventStore.js';
 import {
   getOceanBounds,
@@ -84,30 +78,49 @@ export function updateWaveSpawning(state, deltaTime, gameTime, _config = {}) {
 /**
  * Update wave lifecycle and refraction
  */
-export function updateWaves(waves, gameTime, travelDuration, bufferDuration, bathymetry) {
+export function updateWaves(
+  waves,
+  gameTime,
+  travelDuration,
+  bufferDuration,
+  depthData: Float32Array,
+  depthWidth: number,
+  depthHeight: number
+) {
   // Filter to active waves
   const activeWaves = getActiveWaves(waves, gameTime - bufferDuration, travelDuration);
 
-  // Update refraction for each wave
-  const getDepthFn = (normalizedX, progress) => getDepth(normalizedX, bathymetry, progress);
+  // Create depth sampling function
+  const getDepthFn = (normalizedX: number, progress: number) =>
+    sampleDepth(depthData, depthWidth, depthHeight, normalizedX, progress);
+
+  // Max depth is at horizon (row 0) - sample center top
+  const maxDepth = sampleDepth(depthData, depthWidth, depthHeight, 0.5, 0);
 
   for (const wave of activeWaves) {
-    updateWaveRefraction(wave, gameTime, travelDuration, getDepthFn, bathymetry.deepDepth);
+    updateWaveRefraction(wave, gameTime, travelDuration, getDepthFn, maxDepth);
   }
 
   return activeWaves;
 }
 
 /**
+ * @deprecated Use updateWorld() from model/world.ts instead (Plan 160 Phase 5)
+ *
  * Grid-based foam update:
  * - Detect breaking
  * - Drain energy into transfer grid
  * - Transfer energy into foam grid with decay/advection
+ *
+ * This wave-object approach is being replaced by layer-based updateWorld().
+ * Toggle `useLayerFoam` to switch to the new system.
  */
 export function updateFoamGridsFromWaves(waves, state) {
   const {
     gameTime,
-    bathymetry,
+    depth,
+    depthWidth,
+    depthHeight,
     energyField,
     foamGrid,
     energyTransferGrid,
@@ -147,13 +160,13 @@ export function updateFoamGridsFromWaves(waves, state) {
       let depositedAny = false;
       for (let i = 0; i < numXSamples; i++) {
         const normalizedX = (i + 0.5) / numXSamples;
-        const depth = getDepth(normalizedX, bathymetry, foamProgress);
+        const d = sampleDepth(depth, depthWidth, depthHeight, normalizedX, foamProgress);
 
         const energyAtPoint = Math.abs(getHeightAt(energyField, normalizedX, foamProgress));
-        const shouldBreak = isWaveBreakingWithEnergy(wave, depth, energyAtPoint);
+        const shouldBreak = isWaveBreakingWithEnergy(wave, d, energyAtPoint);
 
         // Always dissipate some energy as waves shoal, even before breaking
-        const shallowFactor = Math.max(0, 1 - depth / 6); // stronger drag in shallow water
+        const shallowFactor = Math.max(0, 1 - d / 6); // stronger drag in shallow water
         const dragEnergy = energyAtPoint * shallowFactor * baseDragRate * deltaTime;
         if (dragEnergy > 0) {
           const released = drainEnergyAt(energyField, normalizedX, foamProgress, dragEnergy);
@@ -204,7 +217,7 @@ export function updateFoamGridsFromWaves(waves, state) {
  * Deposit foam where waves are breaking
  */
 export function depositFoam(waves, foamSegments, state) {
-  const { gameTime, bathymetry, energyField } = state;
+  const { gameTime, depth, depthWidth, depthHeight, energyField } = state;
   const { oceanTop, oceanBottom } = getOceanBounds(state.canvasHeight, state.shoreHeight);
   const travelDuration = calculateTravelDuration(oceanBottom, state.swellSpeed);
 
@@ -232,10 +245,10 @@ export function depositFoam(waves, foamSegments, state) {
       let depositedAny = false;
       for (let i = 0; i < numXSamples; i++) {
         const normalizedX = (i + 0.5) / numXSamples;
-        const depth = getDepth(normalizedX, bathymetry, foamProgress);
+        const d = sampleDepth(depth, depthWidth, depthHeight, normalizedX, foamProgress);
 
         const energyAtPoint = Math.abs(getHeightAt(energyField, normalizedX, foamProgress));
-        const shouldBreak = isWaveBreakingWithEnergy(wave, depth, energyAtPoint);
+        const shouldBreak = isWaveBreakingWithEnergy(wave, d, energyAtPoint);
 
         if (shouldBreak) {
           const energyReleased = drainEnergyAt(
@@ -280,7 +293,7 @@ export function updateFoamLifecycle(foamSegments, deltaTime, gameTime) {
  * Deposit foam rows (span-based) for smooth rendering
  */
 export function depositFoamRows(waves, foamRows, state) {
-  const { gameTime, bathymetry, energyField } = state;
+  const { gameTime, depth, depthWidth, depthHeight, energyField } = state;
   const { oceanTop, oceanBottom } = getOceanBounds(state.canvasHeight, state.shoreHeight);
   const travelDuration = calculateTravelDuration(oceanBottom, state.swellSpeed);
 
@@ -313,10 +326,13 @@ export function depositFoamRows(waves, foamRows, state) {
 
       for (let i = 0; i <= numXSamples; i++) {
         const normalizedX = (i + 0.5) / numXSamples;
-        const depth = i < numXSamples ? getDepth(normalizedX, bathymetry, foamProgress) : Infinity;
+        const d =
+          i < numXSamples
+            ? sampleDepth(depth, depthWidth, depthHeight, normalizedX, foamProgress)
+            : Infinity;
         const energyAtPoint =
           i < numXSamples ? Math.abs(getHeightAt(energyField, normalizedX, foamProgress)) : 0;
-        const breaking = i < numXSamples && isWaveBreakingWithEnergy(wave, depth, energyAtPoint);
+        const breaking = i < numXSamples && isWaveBreakingWithEnergy(wave, d, energyAtPoint);
 
         if (breaking) {
           if (spanStart === null) {
@@ -324,7 +340,7 @@ export function depositFoamRows(waves, foamRows, state) {
             spanIntensitySum = 0;
             spanSampleCount = 0;
           }
-          const intensity = Math.max(0, Math.min(1, 1 - depth / 3));
+          const intensity = Math.max(0, Math.min(1, 1 - d / 3));
           spanIntensitySum += intensity;
           spanSampleCount++;
         } else if (spanStart !== null) {
@@ -370,57 +386,6 @@ export function updateFoamRowLifecycle(foamRows, gameTime) {
 }
 
 /**
- * Update player proxy
- */
-export function updatePlayer(playerProxy, aiState, aiMode, input, state) {
-  const { canvasWidth, canvasHeight, shoreHeight, swellSpeed, foamGrid } = state;
-  const { oceanTop, oceanBottom, shoreY } = getOceanBounds(canvasHeight, shoreHeight);
-  const travelDuration = calculateTravelDuration(oceanBottom, swellSpeed);
-  const scaledDelta = state.deltaTime;
-
-  let currentAiState = aiState;
-  let playerInput = input;
-  let lastAIInput = { left: false, right: false, up: false, down: false };
-
-  if (state.showAIPlayer) {
-    if (!currentAiState) {
-      currentAiState = createAIState(aiMode);
-    }
-    playerInput = updateAIPlayer(
-      playerProxy,
-      currentAiState,
-      state.world,
-      scaledDelta,
-      canvasWidth,
-      canvasHeight,
-      oceanTop,
-      oceanBottom,
-      travelDuration
-    );
-    lastAIInput = playerInput;
-  }
-
-  const updatedPlayer = updatePlayerProxy(
-    playerProxy,
-    scaledDelta,
-    playerInput,
-    foamGrid,
-    shoreY,
-    canvasWidth,
-    canvasHeight,
-    oceanTop,
-    oceanBottom,
-    PLAYER_PROXY_CONFIG
-  );
-
-  return {
-    playerProxy: updatedPlayer,
-    aiState: currentAiState,
-    lastAIInput,
-  };
-}
-
-/**
  * Initialize player proxy
  */
 export function initializePlayer(canvasWidth, canvasHeight, shoreHeight) {
@@ -429,4 +394,5 @@ export function initializePlayer(canvasWidth, canvasHeight, shoreHeight) {
 }
 
 // Re-export utilities for convenience
-export { injectWavePulse, updateEnergyField, getDepth };
+export { injectEnergyPulse, updateEnergyField };
+export { sampleDepth } from '../model/01-depth/renderer.js';

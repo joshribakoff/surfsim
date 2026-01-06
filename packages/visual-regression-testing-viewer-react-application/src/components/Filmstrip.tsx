@@ -113,31 +113,31 @@ export function Filmstrip<T extends FilmstripSnapshot>({
 }
 
 /**
- * Utility to render a 2D matrix to a canvas using a color function.
+ * Utility to render a Float32Array matrix to a canvas using a color function.
  * Use this with Filmstrip for matrix-based visualizations.
  *
  * @example
  * renderSnapshot={(snap, ctx, w, h) =>
- *   renderMatrixToCanvas(ctx, snap.matrix, energyToColor, w, h)
+ *   renderMatrixToCanvas(ctx, snap.matrix, snap.width, snap.height, energyToColor, w, h)
  * }
  */
 export function renderMatrixToCanvas(
   ctx: CanvasRenderingContext2D,
-  matrix: number[][],
+  matrix: Float32Array,
+  matrixWidth: number,
+  matrixHeight: number,
   colorFn: (value: number) => string,
   canvasWidth: number,
   canvasHeight: number
 ): void {
-  const rows = matrix.length;
-  const cols = matrix[0]?.length ?? 0;
-  if (rows === 0 || cols === 0) return;
+  if (matrixWidth === 0 || matrixHeight === 0) return;
 
-  const cellWidth = canvasWidth / cols;
-  const cellHeight = canvasHeight / rows;
+  const cellWidth = canvasWidth / matrixWidth;
+  const cellHeight = canvasHeight / matrixHeight;
 
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const value = matrix[row][col];
+  for (let row = 0; row < matrixHeight; row++) {
+    for (let col = 0; col < matrixWidth; col++) {
+      const value = matrix[row * matrixWidth + col];
       ctx.fillStyle = colorFn(value);
       ctx.fillRect(col * cellWidth, row * cellHeight, cellWidth - 1, cellHeight - 1);
     }

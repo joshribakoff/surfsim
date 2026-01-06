@@ -1,4 +1,4 @@
-import { defineStripVisualTests } from '../visual-test-helpers';
-import { FOAM_GRID_STRIPS } from '@surf/core/src/render/foamGridProgressions';
+import { defineStoryVisualTests } from '../visual-test-helpers';
 
-defineStripVisualTests(FOAM_GRID_STRIPS);
+// ID matches the file path structure: layerPrefix/storyFileName -> 05-foam/01-foam-dynamics
+defineStoryVisualTests('05-foam', [['01-foam-dynamics', { id: '05-foam/01-foam-dynamics' }]]);

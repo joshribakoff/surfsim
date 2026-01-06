@@ -58,20 +58,42 @@ export function charToValue(char: string): number {
 }
 
 /**
- * Convert a 2D matrix to compact ASCII format
+ * Convert a Float32Array to compact ASCII format
+ * Automatically scales by max value in data (so max always maps to 'F')
  */
-export function matrixToAscii(matrix: number[][]): string {
-  return matrix.map((row) => row.map(valueToChar).join('')).join('\n');
+export function matrixToAscii(data: Float32Array, width: number, height: number): string {
+  const maxValue = Math.max(...data) || 1;
+  const rows: string[] = [];
+  for (let y = 0; y < height; y++) {
+    let row = '';
+    for (let x = 0; x < width; x++) {
+      row += valueToChar(data[y * width + x] / maxValue);
+    }
+    rows.push(row);
+  }
+  return rows.join('\n');
 }
 
 /**
- * Convert ASCII format back to a 2D matrix
+ * Convert ASCII format back to a Float32Array
  */
-export function asciiToMatrix(ascii: string): number[][] {
-  return ascii
-    .trim()
-    .split('\n')
-    .map((line) => line.split('').map(charToValue));
+export function asciiToMatrix(ascii: string): {
+  data: Float32Array;
+  width: number;
+  height: number;
+} {
+  const lines = ascii.trim().split('\n');
+  const height = lines.length;
+  const width = lines[0]?.length ?? 0;
+  const data = new Float32Array(width * height);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      data[y * width + x] = charToValue(lines[y][x]);
+    }
+  }
+
+  return { data, width, height };
 }
 
 /**
@@ -87,12 +109,27 @@ export function asciiToMatrix(ascii: string): number[][] {
  *   -----    -----    -----
  */
 export function progressionToAscii(
-  snapshots: Array<{ time: number; matrix: number[][]; label?: string }>
+  snapshots: Array<{
+    time: number;
+    matrix: Float32Array;
+    width: number;
+    height: number;
+    label?: string;
+  }>
 ): string {
   if (snapshots.length === 0) return '';
 
-  const numRows = snapshots[0].matrix.length;
-  const colWidth = snapshots[0].matrix[0].length + 2; // +2 for spacing
+  const { width, height } = snapshots[0];
+  const colWidth = width + 2; // +2 for spacing
+
+  // Find max value across all snapshots for auto-scaling
+  let maxValue = 0;
+  for (const s of snapshots) {
+    for (let i = 0; i < s.matrix.length; i++) {
+      if (s.matrix[i] > maxValue) maxValue = s.matrix[i];
+    }
+  }
+  if (maxValue === 0) maxValue = 1;
 
   // Build header row with time labels
   const headers = snapshots.map((s) => {
@@ -103,72 +140,16 @@ export function progressionToAscii(
 
   // Build each row across all frames
   const rows: string[] = [];
-  for (let r = 0; r < numRows; r++) {
+  for (let r = 0; r < height; r++) {
     const rowParts = snapshots.map((s) => {
-      const asciiRow = s.matrix[r].map(valueToChar).join('');
+      let asciiRow = '';
+      for (let c = 0; c < width; c++) {
+        asciiRow += valueToChar(s.matrix[r * width + c] / maxValue);
+      }
       return asciiRow.padEnd(colWidth);
     });
     rows.push(rowParts.join('').trimEnd());
   }
 
   return [headerLine, ...rows].join('\n');
-}
-
-/**
- * Parse a multi-frame ASCII format back to snapshots
- */
-export function asciiToProgression(ascii: string): Array<{ time: number; matrix: number[][] }> {
-  const lines = ascii.trim().split('\n');
-  if (lines.length < 2) return [];
-
-  // Parse header to get number of frames and their labels
-  const headerLine = lines[0];
-  const labels = headerLine.trim().split(/\s{2,}/); // Split on 2+ spaces
-
-  const numFrames = labels.length;
-  const numRows = lines.length - 1;
-
-  // Determine column width from first data row
-  const firstDataLine = lines[1];
-  const totalWidth = firstDataLine.length;
-  const colWidth = Math.floor(totalWidth / numFrames);
-
-  // Parse each frame
-  const snapshots: Array<{ time: number; matrix: number[][] }> = [];
-
-  for (let f = 0; f < numFrames; f++) {
-    const matrix: number[][] = [];
-    const startCol = f * colWidth;
-
-    for (let r = 0; r < numRows; r++) {
-      const line = lines[r + 1];
-      const segment = line.substring(startCol, startCol + colWidth).trim();
-      const row = segment.split('').map(charToValue);
-      matrix.push(row);
-    }
-
-    // Parse time from label (e.g., "t=0s" -> 0)
-    const label = labels[f];
-    const timeMatch = label.match(/t=(\d+)/);
-    const time = timeMatch ? parseInt(timeMatch[1], 10) : f;
-
-    snapshots.push({ time, matrix });
-  }
-
-  return snapshots;
-}
-
-/**
- * Compare two matrices and return true if they match within ASCII precision
- * (values that map to the same character are considered equal)
- */
-export function matricesMatchAscii(a: number[][], b: number[][]): boolean {
-  if (a.length !== b.length) return false;
-  for (let r = 0; r < a.length; r++) {
-    if (a[r].length !== b[r].length) return false;
-    for (let c = 0; c < a[r].length; c++) {
-      if (valueToChar(a[r][c]) !== valueToChar(b[r][c])) return false;
-    }
-  }
-  return true;
 }

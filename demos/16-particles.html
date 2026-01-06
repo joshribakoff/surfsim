@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Particle Spray</title>
+    <style>
+        body { margin: 0; background: #1a2a3a; overflow: hidden; }
+        canvas { display: block; }
+        .info { position: absolute; top: 10px; left: 10px; color: #fff; font: 12px monospace; background: rgba(0,0,0,0.7); padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <b>Particle Spray</b><br>
+        Point particles for water spray/mist.<br>
+        Simple physics with gravity.<br>
+        Click to spawn more particles!
+    </div>
+    <canvas id="c"></canvas>
+    <script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+class Particle {
+    constructor(x, y, vx, vy) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.life = 1.0;
+        this.size = 2 + Math.random() * 4;
+        this.decay = 0.005 + Math.random() * 0.01;
+    }
+
+    update() {
+        this.vy += 0.15; // gravity
+        this.vx *= 0.99; // drag
+        this.vy *= 0.99;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= this.decay;
+    }
+
+    draw(ctx) {
+        const alpha = this.life * 0.8;
+        const size = this.size * this.life;
+
+        // Glow
+        const gradient = ctx.createRadialGradient(
+            this.x, this.y, 0,
+            this.x, this.y, size * 2
+        );
+        gradient.addColorStop(0, `rgba(200, 230, 255, ${alpha})`);
+        gradient.addColorStop(0.5, `rgba(100, 180, 220, ${alpha * 0.5})`);
+        gradient.addColorStop(1, `rgba(50, 100, 150, 0)`);
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, size * 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Core
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+let particles = [];
+
+function spawnBurst(x, y, count = 50) {
+    for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 2 + Math.random() * 8;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed - 5; // upward bias
+        particles.push(new Particle(x, y, vx, vy));
+    }
+}
+
+function spawnWaveSpray() {
+    const x = Math.random() * canvas.width;
+    const y = canvas.height * 0.7 + Math.random() * 50;
+
+    for (let i = 0; i < 20; i++) {
+        const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+        const speed = 3 + Math.random() * 6;
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+        particles.push(new Particle(x + Math.random() * 20, y, vx, vy));
+    }
+}
+
+canvas.addEventListener('click', (e) => {
+    spawnBurst(e.clientX, e.clientY, 80);
+});
+
+// Draw simple wave background
+function drawWave(t) {
+    ctx.fillStyle = '#0a1520';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Sky gradient
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.6);
+    skyGrad.addColorStop(0, '#1a3a5a');
+    skyGrad.addColorStop(1, '#2a5a7a');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, canvas.width, canvas.height * 0.6);
+
+    // Water
+    ctx.fillStyle = '#0a2030';
+
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height);
+
+    for (let x = 0; x <= canvas.width; x += 5) {
+        const wave = Math.sin(x * 0.01 + t * 2) * 20
+                   + Math.sin(x * 0.02 - t * 1.5) * 10
+                   + Math.sin(x * 0.005 + t) * 30;
+        ctx.lineTo(x, canvas.height * 0.65 + wave);
+    }
+
+    ctx.lineTo(canvas.width, canvas.height);
+    ctx.closePath();
+    ctx.fill();
+
+    // Wave highlight
+    ctx.strokeStyle = 'rgba(100, 180, 220, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let x = 0; x <= canvas.width; x += 5) {
+        const wave = Math.sin(x * 0.01 + t * 2) * 20
+                   + Math.sin(x * 0.02 - t * 1.5) * 10
+                   + Math.sin(x * 0.005 + t) * 30;
+        if (x === 0) ctx.moveTo(x, canvas.height * 0.65 + wave);
+        else ctx.lineTo(x, canvas.height * 0.65 + wave);
+    }
+    ctx.stroke();
+}
+
+let lastSpawn = 0;
+
+function animate(t) {
+    const time = t * 0.001;
+
+    drawWave(time);
+
+    // Spawn periodic spray
+    if (t - lastSpawn > 200) {
+        spawnWaveSpray();
+        lastSpawn = t;
+    }
+
+    // Update and draw particles
+    particles = particles.filter(p => p.life > 0);
+    particles.forEach(p => {
+        p.update();
+        p.draw(ctx);
+    });
+
+    requestAnimationFrame(animate);
+}
+
+// Initial burst
+spawnBurst(canvas.width / 2, canvas.height * 0.6, 100);
+
+animate(0);
+    </script>
+</body>
+</html>

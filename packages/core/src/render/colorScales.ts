@@ -1,92 +1,39 @@
 /**
  * Perceptually Uniform Color Scales for Data Visualization
  *
- * Uses Viridis - a perceptually uniform, colorblind-friendly color scale
- * from matplotlib. Equal steps in data produce equal perceptual changes.
- *
- * Reference: https://www.kennethmoreland.com/color-advice/
+ * Uses scale-color-perceptual for accurate Viridis colors from matplotlib.
+ * Standard heatmap convention: low values = purple, high values = yellow.
  */
 
-// Viridis color table (16 entries, byte values 0-255)
-// Deep purple -> cyan -> yellow
-const VIRIDIS_TABLE = [
-  { scalar: 0.0, r: 68, g: 1, b: 84 },
-  { scalar: 0.067, r: 72, g: 26, b: 108 },
-  { scalar: 0.133, r: 71, g: 47, b: 125 },
-  { scalar: 0.2, r: 65, g: 68, b: 135 },
-  { scalar: 0.267, r: 57, g: 86, b: 140 },
-  { scalar: 0.333, r: 49, g: 104, b: 142 },
-  { scalar: 0.4, r: 42, g: 120, b: 142 },
-  { scalar: 0.467, r: 35, g: 136, b: 142 },
-  { scalar: 0.533, r: 31, g: 152, b: 139 },
-  { scalar: 0.6, r: 34, g: 168, b: 132 },
-  { scalar: 0.667, r: 53, g: 183, b: 121 },
-  { scalar: 0.733, r: 84, g: 197, b: 104 },
-  { scalar: 0.8, r: 122, g: 209, b: 81 },
-  { scalar: 0.867, r: 165, g: 219, b: 54 },
-  { scalar: 0.933, r: 210, g: 226, b: 27 },
-  { scalar: 1.0, r: 253, g: 231, b: 37 },
-];
-
-/**
- * Interpolate between two colors
- */
-function lerp(a: number, b: number, t: number): number {
-  return Math.round(a + (b - a) * t);
-}
+import viridis from 'scale-color-perceptual/viridis';
 
 /**
  * Map a scalar value (0-1) to Viridis RGB color
- * Uses linear interpolation between table entries for smooth gradients
+ * 0 = purple (low/cold), 1 = yellow (high/hot)
  */
 export function viridisToRgb(scalar: number): { r: number; g: number; b: number } {
   const clamped = Math.max(0, Math.min(1, scalar));
-
-  // Find the two table entries to interpolate between
-  let lower = VIRIDIS_TABLE[0];
-  let upper = VIRIDIS_TABLE[VIRIDIS_TABLE.length - 1];
-
-  for (let i = 0; i < VIRIDIS_TABLE.length - 1; i++) {
-    if (clamped >= VIRIDIS_TABLE[i].scalar && clamped <= VIRIDIS_TABLE[i + 1].scalar) {
-      lower = VIRIDIS_TABLE[i];
-      upper = VIRIDIS_TABLE[i + 1];
-      break;
-    }
-  }
-
-  // Interpolate
-  const range = upper.scalar - lower.scalar;
-  const t = range > 0 ? (clamped - lower.scalar) / range : 0;
-
-  return {
-    r: lerp(lower.r, upper.r, t),
-    g: lerp(lower.g, upper.g, t),
-    b: lerp(lower.b, upper.b, t),
-  };
+  const hex = viridis(clamped);
+  // Parse hex string "#rrggbb" to RGB
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return { r, g, b };
 }
 
 /**
  * Map a scalar value (0-1) to Viridis CSS color string
+ * 0 = purple (low/cold), 1 = yellow (high/hot)
  */
 export function viridisToColor(scalar: number): string {
-  const { r, g, b } = viridisToRgb(scalar);
-  return `rgb(${r},${g},${b})`;
+  const clamped = Math.max(0, Math.min(1, scalar));
+  return viridis(clamped);
 }
 
 /**
  * Map energy value to color for heatmap visualization
- * Energy 0 = dark purple, Energy 1 = bright yellow
+ * 0 = purple, 1 = yellow (standard heatmap convention)
  */
 export function energyToColor(energy: number): string {
   return viridisToColor(energy);
-}
-
-/**
- * Map depth value to Viridis color (inverted for intuitive visualization)
- * Shallow (0) = yellow (warm, like sand/shore)
- * Deep (1) = purple (cool, like deep ocean)
- */
-export function depthToViridis(depth: number): string {
-  // Invert so shallow=yellow, deep=purple
-  return viridisToColor(1 - depth);
 }

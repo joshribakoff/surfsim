@@ -1,4 +1,5 @@
-import { defineStripVisualTests } from '../visual-test-helpers';
-import { WAVE_BREAKING_STRIPS } from '@surf/core/src/render/waveBreakingProgressions';
+// Breaking stories consolidated into 05-foam layer
+// These visual tests are no longer needed - breaking is part of foam dynamics
+import { defineStoryVisualTests } from '../visual-test-helpers';
 
-defineStripVisualTests(WAVE_BREAKING_STRIPS);
+defineStoryVisualTests('05-foam', []);
