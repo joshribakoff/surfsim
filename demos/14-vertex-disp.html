@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vertex Displacement</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; }
+        canvas { display: block; }
+        .info { position: absolute; top: 10px; left: 10px; color: #fff; font: 12px monospace; background: rgba(0,0,0,0.7); padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <b>Vertex Displacement</b><br>
+        Actual geometry displaced in vertex shader.<br>
+        Real 3D mesh with proper lighting.<br>
+        Common in game engines.
+    </div>
+    <canvas id="c"></canvas>
+    <script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const vs = `
+attribute vec3 aPos;
+attribute vec2 aUV;
+uniform float time;
+uniform mat4 uProj;
+uniform mat4 uView;
+varying vec3 vPos;
+varying vec3 vNormal;
+varying vec2 vUV;
+
+float wave(vec2 p, float t) {
+    float h = 0.0;
+    h += sin(p.x * 2.0 + t * 2.0) * 0.2;
+    h += sin(p.x * 4.0 - t * 1.5) * 0.1;
+    h += sin((p.x + p.y) * 3.0 + t) * 0.15;
+    h += sin(p.y * 5.0 + t * 0.8) * 0.08;
+    return h;
+}
+
+void main() {
+    vec3 pos = aPos;
+
+    // Displace Y based on waves
+    pos.y = wave(pos.xz, time);
+
+    // Calculate normal from wave derivatives
+    float eps = 0.1;
+    float hx = wave(pos.xz + vec2(eps, 0.0), time);
+    float hz = wave(pos.xz + vec2(0.0, eps), time);
+    float dx = (hx - pos.y) / eps;
+    float dz = (hz - pos.y) / eps;
+    vNormal = normalize(vec3(-dx, 1.0, -dz));
+
+    vPos = pos;
+    vUV = aUV;
+
+    gl_Position = uProj * uView * vec4(pos, 1.0);
+}
+`;
+
+const fs = `
+precision highp float;
+varying vec3 vPos;
+varying vec3 vNormal;
+varying vec2 vUV;
+uniform float time;
+
+void main() {
+    vec3 lightDir = normalize(vec3(0.5, 0.8, 0.3));
+    vec3 viewDir = normalize(vec3(0.0, 2.0, 3.0) - vPos);
+
+    // Diffuse
+    float diff = max(dot(vNormal, lightDir), 0.0);
+
+    // Specular
+    vec3 halfDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(vNormal, halfDir), 0.0), 64.0);
+
+    // Fresnel
+    float fresnel = pow(1.0 - max(dot(viewDir, vNormal), 0.0), 3.0);
+
+    // Base water color
+    vec3 deepColor = vec3(0.0, 0.1, 0.25);
+    vec3 shallowColor = vec3(0.0, 0.35, 0.5);
+    vec3 waterColor = mix(shallowColor, deepColor, 0.5);
+
+    // Sky color for reflection
+    vec3 skyColor = vec3(0.5, 0.7, 0.9);
+
+    vec3 color = waterColor;
+    color += vec3(0.15) * diff;
+    color = mix(color, skyColor, fresnel * 0.5);
+    color += vec3(1.0, 0.95, 0.9) * spec * 0.8;
+
+    // Foam at peaks
+    if (vPos.y > 0.25) {
+        float foam = smoothstep(0.25, 0.4, vPos.y);
+        color = mix(color, vec3(0.9, 0.95, 1.0), foam * 0.5);
+    }
+
+    gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function createShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(s));
+    }
+    return s;
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, createShader(gl.VERTEX_SHADER, vs));
+gl.attachShader(prog, createShader(gl.FRAGMENT_SHADER, fs));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+// Create grid mesh
+const gridSize = 100;
+const gridScale = 8;
+const vertices = [];
+const uvs = [];
+const indices = [];
+
+for (let z = 0; z <= gridSize; z++) {
+    for (let x = 0; x <= gridSize; x++) {
+        const px = (x / gridSize - 0.5) * gridScale;
+        const pz = (z / gridSize - 0.5) * gridScale;
+        vertices.push(px, 0, pz);
+        uvs.push(x / gridSize, z / gridSize);
+    }
+}
+
+for (let z = 0; z < gridSize; z++) {
+    for (let x = 0; x < gridSize; x++) {
+        const i = z * (gridSize + 1) + x;
+        indices.push(i, i + 1, i + gridSize + 1);
+        indices.push(i + 1, i + gridSize + 2, i + gridSize + 1);
+    }
+}
+
+const posBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+const uvBuf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+
+const indexBuf = gl.createBuffer();
+gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuf);
+gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+const aPosLoc = gl.getAttribLocation(prog, 'aPos');
+const aUVLoc = gl.getAttribLocation(prog, 'aUV');
+const timeLoc = gl.getUniformLocation(prog, 'time');
+const projLoc = gl.getUniformLocation(prog, 'uProj');
+const viewLoc = gl.getUniformLocation(prog, 'uView');
+
+// Simple perspective matrix
+function perspective(fov, aspect, near, far) {
+    const f = 1.0 / Math.tan(fov / 2);
+    return new Float32Array([
+        f / aspect, 0, 0, 0,
+        0, f, 0, 0,
+        0, 0, (far + near) / (near - far), -1,
+        0, 0, 2 * far * near / (near - far), 0
+    ]);
+}
+
+// Simple lookAt matrix
+function lookAt(eye, target, up) {
+    const z = normalize(sub(eye, target));
+    const x = normalize(cross(up, z));
+    const y = cross(z, x);
+    return new Float32Array([
+        x[0], y[0], z[0], 0,
+        x[1], y[1], z[1], 0,
+        x[2], y[2], z[2], 0,
+        -dot(x, eye), -dot(y, eye), -dot(z, eye), 1
+    ]);
+}
+
+function sub(a, b) { return [a[0]-b[0], a[1]-b[1], a[2]-b[2]]; }
+function cross(a, b) { return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+function dot(a, b) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+function normalize(v) { const l = Math.sqrt(dot(v,v)); return [v[0]/l, v[1]/l, v[2]/l]; }
+
+gl.enable(gl.DEPTH_TEST);
+
+function render(t) {
+    const time = t * 0.001;
+
+    gl.clearColor(0.5, 0.7, 0.9, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    gl.useProgram(prog);
+
+    const aspect = canvas.width / canvas.height;
+    const proj = perspective(Math.PI / 4, aspect, 0.1, 100);
+    const view = lookAt([0, 2, 4], [0, 0, 0], [0, 1, 0]);
+
+    gl.uniformMatrix4fv(projLoc, false, proj);
+    gl.uniformMatrix4fv(viewLoc, false, view);
+    gl.uniform1f(timeLoc, time);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+    gl.enableVertexAttribArray(aPosLoc);
+    gl.vertexAttribPointer(aPosLoc, 3, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, uvBuf);
+    gl.enableVertexAttribArray(aUVLoc);
+    gl.vertexAttribPointer(aUVLoc, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuf);
+    gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+
+    requestAnimationFrame(render);
+}
+render(0);
+    </script>
+</body>
+</html>

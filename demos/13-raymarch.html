@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Raymarched Water</title>
+    <style>
+        body { margin: 0; background: #000; }
+        canvas { display: block; }
+        .info { position: absolute; top: 10px; left: 10px; color: #fff; font: 12px monospace; background: rgba(0,0,0,0.7); padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <b>Raymarched Water</b><br>
+        SDF raymarching through water volume.<br>
+        Enables complex surface shapes and<br>
+        proper occlusion/shadows.
+    </div>
+    <canvas id="c"></canvas>
+    <script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const vs = `attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }`;
+
+const fs = `
+precision highp float;
+uniform float time;
+uniform vec2 resolution;
+
+#define MAX_STEPS 64
+#define MAX_DIST 20.0
+#define SURF_DIST 0.01
+
+vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+
+float snoise(vec2 v) {
+    const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+    vec2 i = floor(v + dot(v, C.yy));
+    vec2 x0 = v - i + dot(i, C.xx);
+    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+    vec4 x12 = x0.xyxy + C.xxzz;
+    x12.xy -= i1;
+    i = mod289(i);
+    vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+    m = m*m; m = m*m;
+    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+    vec3 h = abs(x) - 0.5;
+    vec3 ox = floor(x + 0.5);
+    vec3 a0 = x - ox;
+    m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+    vec3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+    return 130.0 * dot(m, g);
+}
+
+float waterHeight(vec2 p) {
+    float t = time * 0.5;
+    float h = 0.0;
+    h += sin(p.x * 1.5 + t) * 0.3;
+    h += sin(p.x * 3.0 - t * 0.7) * 0.15;
+    h += snoise(p * 0.5 + t * 0.3) * 0.2;
+    h += snoise(p * 1.5 - t * 0.2) * 0.1;
+    return h;
+}
+
+// SDF for water surface
+float waterSDF(vec3 p) {
+    return p.y - waterHeight(p.xz);
+}
+
+// Raymarching
+float raymarch(vec3 ro, vec3 rd) {
+    float d = 0.0;
+    for (int i = 0; i < MAX_STEPS; i++) {
+        vec3 p = ro + rd * d;
+        float ds = waterSDF(p);
+        d += ds;
+        if (abs(ds) < SURF_DIST || d > MAX_DIST) break;
+    }
+    return d;
+}
+
+vec3 getNormal(vec3 p) {
+    float e = 0.01;
+    return normalize(vec3(
+        waterSDF(p + vec3(e, 0, 0)) - waterSDF(p - vec3(e, 0, 0)),
+        waterSDF(p + vec3(0, e, 0)) - waterSDF(p - vec3(0, e, 0)),
+        waterSDF(p + vec3(0, 0, e)) - waterSDF(p - vec3(0, 0, e))
+    ));
+}
+
+void main() {
+    vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / resolution.y;
+
+    // Camera
+    vec3 ro = vec3(0.0, 2.0, -5.0);
+    vec3 lookAt = vec3(0.0, 0.0, 0.0);
+
+    vec3 forward = normalize(lookAt - ro);
+    vec3 right = normalize(cross(vec3(0, 1, 0), forward));
+    vec3 up = cross(forward, right);
+
+    vec3 rd = normalize(forward + uv.x * right + uv.y * up);
+
+    float d = raymarch(ro, rd);
+
+    vec3 color;
+
+    if (d < MAX_DIST) {
+        vec3 p = ro + rd * d;
+        vec3 n = getNormal(p);
+
+        // Lighting
+        vec3 lightDir = normalize(vec3(0.5, 0.8, -0.3));
+        float diff = max(dot(n, lightDir), 0.0);
+
+        // Fresnel
+        float fresnel = pow(1.0 - max(dot(-rd, n), 0.0), 4.0);
+
+        // Water color
+        vec3 waterDeep = vec3(0.0, 0.1, 0.2);
+        vec3 waterShallow = vec3(0.0, 0.3, 0.5);
+        color = mix(waterShallow, waterDeep, 0.5);
+
+        // Sky reflection
+        vec3 skyColor = vec3(0.5, 0.7, 0.9);
+        color = mix(color, skyColor, fresnel * 0.7);
+
+        // Diffuse
+        color += vec3(0.1) * diff;
+
+        // Specular
+        vec3 reflDir = reflect(rd, n);
+        float spec = pow(max(dot(reflDir, lightDir), 0.0), 64.0);
+        color += vec3(1.0, 0.95, 0.9) * spec;
+
+        // Fog
+        float fog = 1.0 - exp(-d * 0.1);
+        color = mix(color, vec3(0.5, 0.6, 0.7), fog);
+    } else {
+        // Sky
+        color = mix(vec3(0.5, 0.7, 0.9), vec3(0.3, 0.5, 0.8), uv.y + 0.5);
+    }
+
+    gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function createShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, createShader(gl.VERTEX_SHADER, vs));
+gl.attachShader(prog, createShader(gl.FRAGMENT_SHADER, fs));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+
+const pos = gl.getAttribLocation(prog, 'pos');
+gl.enableVertexAttribArray(pos);
+gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+
+const timeLoc = gl.getUniformLocation(prog, 'time');
+const resLoc = gl.getUniformLocation(prog, 'resolution');
+
+function render(t) {
+    gl.uniform1f(timeLoc, t * 0.001);
+    gl.uniform2f(resLoc, canvas.width, canvas.height);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+}
+render(0);
+    </script>
+</body>
+</html>

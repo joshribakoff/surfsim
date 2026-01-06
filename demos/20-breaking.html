@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Breaking Wave Face</title>
+    <style>
+        body { margin: 0; background: #000; }
+        canvas { display: block; }
+        .info { position: absolute; top: 10px; left: 10px; color: #fff; font: 12px monospace; background: rgba(0,0,0,0.7); padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <b>Breaking Wave Face</b><br>
+        The smooth, glassy face of a wave<br>
+        as it steepens before breaking.<br>
+        Key for surfing visualization!
+    </div>
+    <canvas id="c"></canvas>
+    <script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const vs = `attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }`;
+
+const fs = `
+precision highp float;
+uniform float time;
+uniform vec2 resolution;
+
+#define PI 3.14159265
+
+vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+
+float snoise(vec2 v) {
+    const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+    vec2 i = floor(v + dot(v, C.yy));
+    vec2 x0 = v - i + dot(i, C.xx);
+    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+    vec4 x12 = x0.xyxy + C.xxzz;
+    x12.xy -= i1;
+    i = mod289(i);
+    vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+    m = m*m; m = m*m;
+    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+    vec3 h = abs(x) - 0.5;
+    vec3 ox = floor(x + 0.5);
+    vec3 a0 = x - ox;
+    m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+    vec3 g;
+    g.x = a0.x * x0.x + h.x * x0.y;
+    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+    return 130.0 * dot(m, g);
+}
+
+// Breaking wave profile - asymmetric with steep face
+float waveProfile(float x, float t) {
+    // Phase position along wave
+    float phase = x - t * 0.3;
+
+    // Base wave shape - asymmetric
+    float wavePos = mod(phase, 2.0) - 1.0;
+
+    float h = 0.0;
+
+    // Steep front face, gradual back
+    if (wavePos < 0.0) {
+        // Back of wave (gradual)
+        h = sin(wavePos * PI * 0.5) * 0.3;
+    } else {
+        // Front face (steep, curling)
+        float steepness = 1.5;
+        h = sin(wavePos * PI * 0.7) * 0.5;
+
+        // Add curl at top
+        if (wavePos > 0.3) {
+            float curl = (wavePos - 0.3) * 2.0;
+            h += curl * curl * 0.3;
+        }
+    }
+
+    return h;
+}
+
+// Wave lip/curl shape
+float waveLip(float x, float y, float t) {
+    float phase = x - t * 0.3;
+    float wavePos = mod(phase, 2.0) - 1.0;
+
+    if (wavePos > 0.4 && wavePos < 0.8) {
+        float lipProgress = (wavePos - 0.4) / 0.4;
+        float lipCurve = sin(lipProgress * PI);
+
+        // Curl throws forward
+        float lipX = wavePos + lipCurve * 0.2;
+        float lipY = 0.5 + lipCurve * 0.15;
+
+        float dist = length(vec2(wavePos - lipX, y - lipY));
+        return smoothstep(0.1, 0.0, dist);
+    }
+    return 0.0;
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution;
+    float aspect = resolution.x / resolution.y;
+    float t = time;
+
+    // Scale and position
+    vec2 p = uv * vec2(aspect, 1.0) * 2.0;
+
+    float waveHeight = waveProfile(p.x, t);
+
+    // Add small ripples on face
+    float ripple = snoise(p * 10.0 + vec2(t * 2.0, 0.0)) * 0.02;
+    ripple += snoise(p * 20.0 - vec2(t, 0.0)) * 0.01;
+
+    float surface = uv.y - 0.3 - waveHeight - ripple;
+
+    // Wave face detection
+    float phase = p.x - t * 0.3;
+    float wavePos = mod(phase, 2.0) - 1.0;
+    bool onFace = wavePos > 0.0 && wavePos < 0.6 && surface < 0.0;
+
+    vec3 color;
+
+    if (surface < 0.0) {
+        // Water
+        vec3 deepColor = vec3(0.0, 0.1, 0.25);
+        vec3 faceColor = vec3(0.05, 0.35, 0.5);
+        vec3 glassyColor = vec3(0.1, 0.5, 0.6);
+
+        float depth = clamp(-surface * 2.0, 0.0, 1.0);
+        color = mix(faceColor, deepColor, depth);
+
+        // Glassy face effect
+        if (onFace) {
+            // Smooth gradient on wave face
+            float faceGradient = wavePos / 0.6;
+            color = mix(color, glassyColor, faceGradient * 0.5);
+
+            // Light transmission through thin water
+            float thickness = 1.0 - faceGradient;
+            vec3 translucentColor = vec3(0.2, 0.6, 0.5);
+            color = mix(color, translucentColor, thickness * 0.3);
+
+            // Surface flow lines
+            float flowLines = sin((p.y + p.x * 0.5) * 50.0 - t * 5.0);
+            flowLines = smoothstep(0.8, 1.0, flowLines);
+            color += vec3(0.1) * flowLines * (1.0 - depth);
+        }
+
+        // Foam at lip
+        float lip = waveLip(p.x, uv.y, t);
+        color = mix(color, vec3(0.95, 0.97, 1.0), lip);
+
+        // Spray/mist at lip
+        if (wavePos > 0.5 && wavePos < 0.9) {
+            float spray = snoise(p * 30.0 + t * 3.0);
+            spray = smoothstep(0.5, 0.8, spray) * (wavePos - 0.5) * 2.0;
+            color += vec3(0.3, 0.4, 0.5) * spray * 0.3;
+        }
+
+    } else {
+        // Sky with sun
+        vec3 skyLow = vec3(0.6, 0.75, 0.9);
+        vec3 skyHigh = vec3(0.3, 0.5, 0.8);
+        color = mix(skyLow, skyHigh, uv.y);
+
+        // Sun
+        vec2 sunPos = vec2(0.7 * aspect, 0.8);
+        float sunDist = length(p - sunPos);
+        float sun = smoothstep(0.15, 0.0, sunDist);
+        color += vec3(1.0, 0.95, 0.8) * sun;
+
+        // Sun glow
+        color += vec3(1.0, 0.9, 0.7) * exp(-sunDist * 2.0) * 0.3;
+    }
+
+    // Surface highlight
+    if (abs(surface) < 0.015) {
+        float highlight = 1.0 - abs(surface) / 0.015;
+        color = mix(color, vec3(0.9, 0.95, 1.0), highlight * 0.5);
+    }
+
+    gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function createShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    return s;
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, createShader(gl.VERTEX_SHADER, vs));
+gl.attachShader(prog, createShader(gl.FRAGMENT_SHADER, fs));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+
+const pos = gl.getAttribLocation(prog, 'pos');
+gl.enableVertexAttribArray(pos);
+gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+
+const timeLoc = gl.getUniformLocation(prog, 'time');
+const resLoc = gl.getUniformLocation(prog, 'resolution');
+
+function render(t) {
+    gl.uniform1f(timeLoc, t * 0.001);
+    gl.uniform2f(resLoc, canvas.width, canvas.height);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+}
+render(0);
+    </script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FFT Ocean (Simplified)</title>
+    <style>
+        body { margin: 0; background: #000; }
+        canvas { display: block; }
+        .info { position: absolute; top: 10px; left: 10px; color: #fff; font: 12px monospace; background: rgba(0,0,0,0.7); padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="info">
+        <b>FFT Ocean (Simplified)</b><br>
+        Statistical ocean model based on<br>
+        wave spectra. This is a simplified<br>
+        approximation of Tessendorf's method.
+    </div>
+    <canvas id="c"></canvas>
+    <script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl');
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const vs = `attribute vec2 pos; void main() { gl_Position = vec4(pos, 0, 1); }`;
+
+// Simplified FFT-style ocean using sum of waves with proper spectrum
+const fs = `
+precision highp float;
+uniform float time;
+uniform vec2 resolution;
+
+#define NUM_WAVES 16
+#define PI 3.14159265
+
+// Phillips spectrum approximation
+float phillips(float k, float windSpeed) {
+    float L = windSpeed * windSpeed / 9.81;
+    float k2 = k * k;
+    float k4 = k2 * k2;
+    return exp(-1.0 / (k2 * L * L)) / k4;
+}
+
+// Generate pseudo-random direction for each wave
+vec2 waveDir(float i) {
+    float angle = fract(sin(i * 127.1) * 43758.5) * 2.0 * PI;
+    return vec2(cos(angle), sin(angle));
+}
+
+// Sum of Gerstner waves with spectrum-based amplitudes
+vec3 oceanWave(vec2 p, float t) {
+    vec3 result = vec3(0.0);
+    float windSpeed = 10.0;
+
+    for (int i = 0; i < NUM_WAVES; i++) {
+        float fi = float(i);
+        float wavelength = 1.0 + fi * 0.5;
+        float k = 2.0 * PI / wavelength;
+        float omega = sqrt(9.81 * k);
+
+        vec2 dir = waveDir(fi);
+
+        // Amplitude from spectrum (simplified)
+        float amp = sqrt(phillips(k, windSpeed)) * 0.1;
+        amp *= 1.0 / (1.0 + fi * 0.3); // Dampen higher frequencies
+
+        float phase = dot(p, dir) * k - omega * t;
+        float steepness = 0.3;
+
+        // Gerstner displacement
+        result.x += steepness * amp * dir.x * cos(phase);
+        result.z += steepness * amp * dir.y * cos(phase);
+        result.y += amp * sin(phase);
+    }
+
+    return result;
+}
+
+// Get normal from displacement
+vec3 oceanNormal(vec2 p, float t) {
+    float eps = 0.05;
+    vec3 c = oceanWave(p, t);
+    vec3 dx = oceanWave(p + vec2(eps, 0.0), t);
+    vec3 dz = oceanWave(p + vec2(0.0, eps), t);
+
+    vec3 tangent = normalize(vec3(eps + dx.x - c.x, dx.y - c.y, dx.z - c.z));
+    vec3 bitangent = normalize(vec3(dz.x - c.x, dz.y - c.y, eps + dz.z - c.z));
+
+    return normalize(cross(bitangent, tangent));
+}
+
+void main() {
+    vec2 uv = gl_FragCoord.xy / resolution;
+    float aspect = resolution.x / resolution.y;
+
+    // Map UV to world space (top-down view with perspective)
+    vec2 p = (uv - 0.5) * vec2(aspect, 1.0) * 20.0;
+    p.y += 10.0 + uv.y * 10.0; // Perspective effect
+
+    float t = time;
+
+    vec3 disp = oceanWave(p, t);
+    vec3 normal = oceanNormal(p, t);
+
+    // Lighting
+    vec3 lightDir = normalize(vec3(0.3, 0.8, 0.5));
+    vec3 viewDir = normalize(vec3(0.0, 1.0, 0.3));
+
+    float diff = max(dot(normal, lightDir), 0.0);
+
+    vec3 halfDir = normalize(lightDir + viewDir);
+    float spec = pow(max(dot(normal, halfDir), 0.0), 128.0);
+
+    float fresnel = pow(1.0 - max(dot(viewDir, normal), 0.0), 4.0);
+
+    // Colors
+    vec3 deepColor = vec3(0.0, 0.05, 0.15);
+    vec3 surfaceColor = vec3(0.0, 0.2, 0.4);
+    vec3 skyColor = vec3(0.5, 0.7, 0.9);
+
+    vec3 color = mix(surfaceColor, deepColor, 0.3);
+    color += vec3(0.1) * diff;
+    color = mix(color, skyColor, fresnel * 0.6);
+    color += vec3(1.0, 0.95, 0.9) * spec;
+
+    // Foam at high points
+    if (disp.y > 0.3) {
+        float foam = smoothstep(0.3, 0.5, disp.y);
+        color = mix(color, vec3(0.9, 0.95, 1.0), foam * 0.6);
+    }
+
+    // Distance fade
+    float dist = uv.y;
+    color = mix(vec3(0.6, 0.75, 0.9), color, smoothstep(0.0, 0.3, 1.0 - dist));
+
+    gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+function createShader(type, src) {
+    const s = gl.createShader(type);
+    gl.shaderSource(s, src);
+    gl.compileShader(s);
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(s));
+    }
+    return s;
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, createShader(gl.VERTEX_SHADER, vs));
+gl.attachShader(prog, createShader(gl.FRAGMENT_SHADER, fs));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,1,-1,-1,1,1,1]), gl.STATIC_DRAW);
+
+const pos = gl.getAttribLocation(prog, 'pos');
+gl.enableVertexAttribArray(pos);
+gl.vertexAttribPointer(pos, 2, gl.FLOAT, false, 0, 0);
+
+const timeLoc = gl.getUniformLocation(prog, 'time');
+const resLoc = gl.getUniformLocation(prog, 'resolution');
+
+function render(t) {
+    gl.uniform1f(timeLoc, t * 0.001);
+    gl.uniform2f(resLoc, canvas.width, canvas.height);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    requestAnimationFrame(render);
+}
+render(0);
+    </script>
+</body>
+</html>
