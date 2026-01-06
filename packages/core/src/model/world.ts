@@ -49,15 +49,18 @@ export interface WorldConfig {
  *
  * @param state - World state containing all layer fields
  * @param depthData - Depth values at each grid cell (same size as other fields)
- * @param dt - Time step in seconds
+ * @param prevTime - Simulation time at start of frame (seconds)
+ * @param currTime - Simulation time at end of frame (seconds)
  * @param config - Optional configuration
  */
 export function updateWorld(
   state: WorldState,
   depthData: Float32Array,
-  dt: number,
+  prevTime: number,
+  currTime: number,
   config: WorldConfig = {}
 ): void {
+  const dt = currTime - prevTime;
   const { referenceDepth = 30, foam: foamConfig = {} } = config;
   const { velocity, energy, heightField, foam } = state;
   assertSameSize(heightField.height, depthData, 'updateWorld');
@@ -66,7 +69,8 @@ export function updateWorld(
   updateVelocityField(velocity, depthData);
 
   // 2. Update energy propagation (02 reads 03)
-  updateEnergyField(energy, velocity, depthData, dt, {
+  // Uses shift-based advection (Plan 181) - requires prevTime/currTime
+  updateEnergyField(energy, velocity, depthData, prevTime, currTime, {
     depthDampingCoefficient: config.depthDampingCoefficient,
     depthDampingExponent: config.depthDampingExponent,
   });

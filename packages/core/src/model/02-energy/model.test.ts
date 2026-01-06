@@ -19,26 +19,27 @@ function createConstantDepth(depth: number): Float32Array {
 describe('energyFieldModel', () => {
   describe('advection displacement calculation', () => {
     it('calculates correct displacement for one frame', () => {
-      // With depth 10m, velocity = sqrt(9.81 * 10) ≈ 9.9 m/s
-      // With 60m grid height and dt = 1/60, displacement should be:
-      // (9.9 * 1/60) / 60 = 0.00275 normalized units
-      // This is much less than 1 cell (0.2 for 6-row grid), so energy should NOT
-      // drain from row 0 in a single frame
+      // Shift-based advection (Plan 181): energy moves in whole-cell increments
+      // With depth 10m, velocity ≈ 10 m/s
+      // Cell height = 200m / 39 cells ≈ 5.1m
+      // Time to cross 1 cell = 5.1m / 10m/s ≈ 0.5s
+      // In 1 frame (1/60s), shift = floor(10 * (1/60) / 5.1) = 0
 
       const field = createEnergyField();
       field.height[0] = 1.0; // Energy at first cell of row 0
 
       const depthData = createConstantDepth(10); // Constant 10m depth
+      const TIME_DELTA = 1 / 60;
 
-      // Single frame update
-      updateEnergyField(field, null, depthData, 1 / 60, {
+      // Single frame update: prevTime=0, currTime=TIME_DELTA
+      updateEnergyField(field, null, depthData, 0, TIME_DELTA, {
         depthDampingCoefficient: 0,
-        gridPhysicalHeight: 200, // Default game grid
+        gridPhysicalHeight: 200,
       });
 
-      // Row 0 should still have most of its energy after 1 frame
-      // (displacement is tiny relative to cell size)
-      expect(field.height[0]).toBeGreaterThan(0.4);
+      // Row 0 should still have energy - shift is 0 for sub-cell displacement
+      // (shift = currCells - prevCells = 0 - 0 = 0)
+      expect(field.height[0]).toBeGreaterThan(0.9);
     });
   });
 
@@ -74,10 +75,14 @@ describe('energyFieldModel', () => {
 
       // Run enough time for energy to propagate to row 2
       // Speed at 10m depth: sqrt(9.81 * 10) ≈ 10 m/s
-      // With 200m grid / 40 rows = 5m per row
-      // Need ~1 second to shift 2 rows
+      // Cell height = 200m / 39 cells ≈ 5.1m
+      // Time to cross 1 cell ≈ 0.51s, so ~1s for 2 rows
+      const TIME_DELTA = 1 / 60;
+      let currTime = 0;
       for (let i = 0; i < 60; i++) {
-        updateEnergyField(field, null, depthData, 1 / 60, {
+        const prevTime = currTime;
+        currTime += TIME_DELTA;
+        updateEnergyField(field, null, depthData, prevTime, currTime, {
           depthDampingCoefficient: 0,
         });
       }
@@ -101,8 +106,12 @@ describe('energyFieldModel', () => {
       }
 
       // Run updates to propagate to row 10
+      const TIME_DELTA = 0.1;
+      let currTime = 0;
       for (let i = 0; i < 300; i++) {
-        updateEnergyField(field, null, depthData, 0.1, {
+        const prevTime = currTime;
+        currTime += TIME_DELTA;
+        updateEnergyField(field, null, depthData, prevTime, currTime, {
           depthDampingCoefficient: 0,
         });
       }
@@ -243,11 +252,14 @@ describe('energyFieldModel', () => {
       injectEnergyPulse(field.height, field.width, 1000);
 
       // Propagate energy to middle of field
-      // Speed at 10m: ~10 m/s, 200m grid / 40 rows = 5m per row
-      // Run several seconds to ensure propagation
+      // Speed at 10m: ~10 m/s, cell height ≈ 5.1m
+      // Run 3 seconds to shift ~6 rows
+      const TIME_DELTA = 1 / 60;
+      let currTime = 0;
       for (let i = 0; i < 180; i++) {
-        // 3 seconds at 60fps
-        updateEnergyField(field, null, depthData, 1 / 60, {
+        const prevTime = currTime;
+        currTime += TIME_DELTA;
+        updateEnergyField(field, null, depthData, prevTime, currTime, {
           depthDampingCoefficient: 0,
         });
       }

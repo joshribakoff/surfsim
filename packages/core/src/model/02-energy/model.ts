@@ -2,7 +2,11 @@
 // Continuous 2D field where waves are emergent peaks, not discrete objects
 //
 // The field stores height values at each grid point. Waves propagate via
-// the wave equation with depth-dependent speed from bathymetry.
+// shift-based advection (Plan 181) - energy moves as coherent blocks,
+// not via diffusive percentage transfer.
+//
+// Key insight: The CFL number (velocity * dt / cellHeight) is a DISPLACEMENT,
+// not a transfer coefficient. See plans/model/181-advection-shift-algorithm.md
 
 import { assertSameSize } from '../../utils/assertSameSize';
 import { getWaveSpeed, type VelocityField } from '../03-velocity/model';
@@ -54,85 +58,124 @@ export function createEnergyField() {
 }
 
 /**
- * Update the energy field with forward transfer advection and damping.
+ * Shift the energy field down by a given number of rows.
+ * Energy moves as a coherent block - no diffusion. (Plan 181)
+ *
+ * @param field - Energy field to shift (mutated)
+ * @param rows - Number of rows to shift down (positive = toward shore)
+ */
+export function shiftFieldDown(
+  field: { height: Float32Array; width: number; gridHeight: number },
+  rows: number
+): void {
+  if (rows <= 0) return;
+
+  const { height, width, gridHeight } = field;
+
+  // Copy from bottom up to avoid overwriting source data
+  for (let y = gridHeight - 1; y >= rows; y--) {
+    for (let x = 0; x < width; x++) {
+      height[y * width + x] = height[(y - rows) * width + x];
+    }
+  }
+
+  // Clear vacated top rows (energy that shifted in from beyond horizon)
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < width; x++) {
+      height[y * width + x] = 0;
+    }
+  }
+}
+
+/**
+ * Update the energy field with shift-based advection and damping.
+ * Replaces diffusive percentage transfer with coherent block movement. (Plan 181)
+ *
+ * CURRENT: Assumes 100% downward velocity (single direction toward shore).
+ * FUTURE: Will read from velocityField to support multi-directional propagation
+ *         and directional energy fields (towardShore, towardLeft, towardRight).
+ *         See Plan 181 "Future: Directional Energy Fields" section.
  *
  * @param field - Energy field to update (mutated)
- * @param velocityField - Velocity field with (vx, vy) at each cell
+ * @param velocityField - Velocity field (currently unused - assumes downward)
  * @param depthData - Depth values at each grid cell (same size as energy field)
- * @param dt - Time step in seconds
- * @param options - { depthDampingCoefficient, depthDampingExponent, gridPhysicalHeight }
+ * @param prevTime - Simulation time at start of frame (seconds)
+ * @param currTime - Simulation time at end of frame (seconds)
+ * @param options - { depthDampingCoefficient, gridPhysicalHeight }
  */
 export function updateEnergyField(
   field,
   velocityField: VelocityField | null,
   depthData: Float32Array,
-  dt,
+  prevTime: number,
+  currTime: number,
   options: Record<string, any> = {}
 ) {
   const { height, width, gridHeight } = field;
   assertSameSize(height, depthData, 'updateEnergyField');
   const { depthDampingCoefficient = 1.5, gridPhysicalHeight = GRID_PHYSICAL_HEIGHT } = options;
 
+  // Delta time derived from prev/curr (used for damping)
+  const dt = currTime - prevTime;
+
   // Cell size in meters
   const cellHeight = gridPhysicalHeight / (gridHeight - 1);
 
-  // Buffer for transferred energy
-  const transfers = new Float32Array(height.length);
+  // === SHIFT-BASED ADVECTION (Plan 181) ===
+  //
+  // WHY CUMULATIVE TIME? With small dt (e.g., 1/60s at 60fps), velocity × dt
+  // is much smaller than cellHeight, so floor(v × dt / h) = 0 every frame.
+  // The wave would never move. Using cumulative time lets us detect when
+  // total displacement crosses cell boundaries:
+  //
+  //   shift = floor(currTime × v / h) - floor(prevTime × v / h)
+  //
+  // This gives shift=1 exactly when we cross a cell boundary, regardless
+  // of frame rate. Energy moves as a coherent block - TRUE advection
+  // (∂E/∂t + v·∂E/∂x = 0), not diffusion.
 
-  // Calculate transfers from each cell
-  for (let y = 0; y < gridHeight - 1; y++) {
+  // Calculate average velocity across field (Option A from Plan 181)
+  // FUTURE: Could use per-column velocity for depth-dependent speed (Option B)
+  // FUTURE: Could read from velocityField for 2D refraction
+  let totalVelocity = 0;
+  for (let y = 0; y < gridHeight; y++) {
     for (let x = 0; x < width; x++) {
       const idx = y * width + x;
-
-      // Get velocity at this cell (in meters/second)
-      let vy: number;
-      if (velocityField) {
-        vy = velocityField.vy[idx];
-      } else {
-        const depth = depthData[idx];
-        vy = getWaveSpeed(depth);
-      }
-
-      // What fraction of energy transfers to next cell this frame?
-      const fraction = Math.min(1, (vy * dt) / cellHeight);
-
-      // Transfer that fraction to the cell below
-      const transfer = height[idx] * fraction;
-      const destIdx = (y + 1) * width + x;
-
-      transfers[idx] -= transfer; // Remove from source
-      transfers[destIdx] += transfer; // Add to destination
+      const depth = depthData[idx];
+      totalVelocity += getWaveSpeed(depth);
     }
   }
+  const avgVelocity = totalVelocity / (width * gridHeight);
 
-  // Apply transfers with distance-based damping
-  // Energy loss is proportional to distance traveled AND inversely proportional to depth
-  // Shallow water = more bottom friction = more energy lost per meter traveled
-  for (let y = 0; y < gridHeight - 1; y++) {
+  // Shift = how many cell boundaries we crossed this frame
+  const prevCells = Math.floor((prevTime * avgVelocity) / cellHeight);
+  const currCells = Math.floor((currTime * avgVelocity) / cellHeight);
+  const shift = currCells - prevCells;
+
+  // Shift the field down (toward shore) by the calculated amount
+  // All energy moves as a block - no "50% here, 50% there" diffusion
+  if (shift > 0) {
+    shiftFieldDown(field, shift);
+  }
+
+  // === DEPTH-DEPENDENT DAMPING ===
+  // Applied as a separate pass AFTER the shift (Plan 181 Phase 3)
+  // Energy loss is inversely proportional to depth (bottom friction)
+  // This affects MAGNITUDE, not spreading - keeps the pulse sharp
+  for (let y = 0; y < gridHeight; y++) {
     for (let x = 0; x < width; x++) {
-      const destIdx = (y + 1) * width + x;
+      const idx = y * width + x;
+      const depth = Math.max(0.01, depthData[idx]);
 
-      // Get depth at destination (where energy is arriving)
-      const destDepth = Math.max(0.01, depthData[destIdx]);
-
-      // Energy loss increases as depth decreases (more bottom friction)
       // frictionFactor: 1.0 at depth=10m, higher in shallower water
-      const frictionFactor = 10 / destDepth;
+      const frictionFactor = 10 / depth;
 
-      // The transfer amount for this cell (already calculated above)
-      const transferIn = transfers[destIdx] > 0 ? transfers[destIdx] : 0;
+      // Damping rate per second (scaled by dt for frame-independent behavior)
+      const dampingRate = depthDampingCoefficient * 0.1 * frictionFactor * dt;
+      const damping = Math.min(0.9, dampingRate); // Cap at 90% per frame
 
-      // Apply friction to the incoming energy
-      // Higher friction = more energy lost during the transfer
-      const frictionLoss =
-        transferIn * Math.min(0.9, depthDampingCoefficient * 0.1 * frictionFactor);
-      transfers[destIdx] -= frictionLoss;
+      height[idx] *= 1 - damping;
     }
-  }
-
-  // Apply transfers
-  for (let i = 0; i < height.length; i++) {
-    height[i] += transfers[i];
   }
 }
 

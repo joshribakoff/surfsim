@@ -22,7 +22,7 @@ export interface StoryConfig {
   /** Assert the initialMatrix matches this ASCII (catches upstream layer drift) */
   assertInitialAscii?: string;
   captureTimes?: number[];
-  updateFn?: (field: any, dt: number) => void;
+  updateFn?: (field: any, prevTime: number, currTime: number) => void;
   expectedAscii: string;
 }
 

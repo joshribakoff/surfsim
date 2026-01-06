@@ -24,7 +24,7 @@ const story = defineStory({
     --------
   `,
   captureTimes: [0, 1, 2, 3, 4, 5],
-  updateFn: (model, dt) => {
+  updateFn: (model, prevTime, currTime) => {
     // Wrap the Float32Array in the structure updateEnergyField expects
     const energyModel = {
       height: model,
@@ -34,7 +34,7 @@ const story = defineStory({
 
     // Pass null for velocityField - updateEnergyField will calculate
     // downward velocity from depth automatically
-    updateEnergyField(energyModel, null, depthData, dt, {
+    updateEnergyField(energyModel, null, depthData, prevTime, currTime, {
       depthDampingCoefficient: 1.5,
       depthDampingExponent: 2.0,
       gridPhysicalHeight: STORY_GRID_PHYSICAL_HEIGHT,
@@ -42,15 +42,15 @@ const story = defineStory({
   },
   expectedAscii: `
     t=0s      t=1s      t=2s      t=3s      t=4s      t=5s
-    FFFFFFFF  22222222  --------  --------  --------  --------
-    --------  33333333  22111122  --------  --------  --------
-    --------  22222222  22222222  11111111  11----11  --------
-    --------  11111111  22222222  22222222  11111111  11----11
-    --------  --------  11222211  22222222  22111122  11111111
-    --------  --------  11111111  22222222  22222222  22111122
-    --------  --------  --------  11111111  22222222  22222222
-    --------  --------  --------  --1111--  11111111  11222211
-    --------  --------  --------  --------  --1111--  11111111
+    FFFFFFFF  --------  --------  --------  --------  --------
+    --------  FFFFFFFF  --------  --------  --------  --------
+    --------  --------  EEEEEEEE  --------  --------  --------
+    --------  --------  --------  DDEEEEDD  --------  --------
+    --------  --------  --------  --------  DDDDDDDD  --------
+    --------  --------  --------  --------  --------  CCDDDDCC
+    --------  --------  --------  --------  --------  --------
+    --------  --------  --------  --------  --------  --------
+    --------  --------  --------  --------  --------  --------
     --------  --------  --------  --------  --------  --------
   `,
 });

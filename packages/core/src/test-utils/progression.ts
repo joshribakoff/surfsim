@@ -21,7 +21,7 @@ const progressionRegistry = new Map();
  * @param {string} config.id - Unique identifier (e.g., 'energy-field/no-damping')
  * @param {string} config.description - Human-readable description
  * @param {Float32Array} config.initialMatrix - Initial state as Float32Array
- * @param {function} config.updateFn - (field, dt) => void - Simulation update function
+ * @param {function} config.updateFn - (field, prevTime, currTime) => void - Simulation update function
  * @param {number[]} config.captureTimes - Times (in seconds) to capture snapshots
  * @param {function} [config.renderFn] - Optional render function for visual tests
  * @param {object} [config.metadata] - Optional metadata (parameters, formula, etc.)
@@ -91,7 +91,7 @@ export function defineProgression(config) {
  *
  * @param {object} options - Capture options
  * @param {Float32Array} options.initialMatrix - Initial state
- * @param {function} options.updateFn - (field, dt) => void
+ * @param {function} options.updateFn - (field, prevTime, currTime) => void
  * @param {number[]} options.captureTimes - Times to capture
  * @param {number} [options.dt] - Time step (default: 1/60)
  * @returns {object[]} Array of { time, matrix, label } snapshots
@@ -129,9 +129,10 @@ export function captureSnapshots(options) {
   const tolerance = dt / 2;
 
   while (captureIdx < sortedTimes.length && currentTime <= maxTime + tolerance) {
-    // Update simulation - updateFn mutates the model directly
-    updateFn(model, dt);
+    // Update simulation - updateFn receives prevTime and currTime
+    const prevTime = currentTime;
     currentTime += dt;
+    updateFn(model, prevTime, currentTime);
 
     // Check if we've reached the next capture time
     const targetTime = sortedTimes[captureIdx];
@@ -155,7 +156,7 @@ export function captureSnapshots(options) {
  *
  * @param {object} options - Simulation options
  * @param {Float32Array} options.initialMatrix - Initial state
- * @param {function} options.updateFn - (field, dt) => void
+ * @param {function} options.updateFn - (field, prevTime, currTime) => void
  * @param {number[]} options.captureTimes - Times to capture
  * @param {object[]} [options.events] - Array of { time, action: (field) => void }
  * @param {number} [options.dt] - Time step (default: 1/60)
@@ -203,9 +204,10 @@ export function captureWithEvents(options) {
   const tolerance = dt / 2;
 
   while (captureIdx < sortedTimes.length && currentTime <= maxTime + tolerance) {
-    // Update simulation - updateFn mutates the model directly
-    updateFn(model, dt);
+    // Update simulation - updateFn receives prevTime and currTime
+    const prevTime = currentTime;
     currentTime += dt;
+    updateFn(model, prevTime, currentTime);
 
     // Process events at this time
     while (

@@ -26,7 +26,7 @@ describe('updateWorld', () => {
     const state = createWorldState();
     const depthData = createConstantDepth(10); // 10m everywhere
 
-    expect(() => updateWorld(state, depthData, 0.016)).not.toThrow();
+    expect(() => updateWorld(state, depthData, 0, 0.016)).not.toThrow();
   });
 
   it('propagates energy toward shore', () => {
@@ -39,20 +39,38 @@ describe('updateWorld', () => {
     }
 
     // Run several updates - energy propagates ~10m/s in 10m depth
-    // Grid is 200m tall with 40 rows = 5m per row
-    // So we need ~2s for energy to reach row 4
+    // Cell height ≈ 5.1m, so ~0.5s per row
+    // After 3s, energy should be at row ~6 (not row 0 anymore)
+    const TIME_DELTA = 0.1;
+    let currTime = 0;
     for (let i = 0; i < 30; i++) {
-      updateWorld(state, depthData, 0.1);
+      const prevTime = currTime;
+      currTime += TIME_DELTA;
+      updateWorld(state, depthData, prevTime, currTime);
     }
 
-    // Energy should have propagated to row 4 (a few rows from horizon)
-    const targetRow = 4;
-    let rowEnergy = 0;
+    // With shift-based advection (Plan 181), energy moves as a coherent block
+    // Find where the energy band is now (should be around row 4-6)
+    let foundEnergy = false;
+    for (let y = 1; y < state.energy.gridHeight; y++) {
+      let rowEnergy = 0;
+      for (let x = 0; x < state.energy.width; x++) {
+        rowEnergy += state.energy.height[y * state.energy.width + x];
+      }
+      if (rowEnergy > 0) {
+        foundEnergy = true;
+        break;
+      }
+    }
+
+    // Energy should have propagated away from row 0
+    expect(foundEnergy).toBe(true);
+    // And row 0 should be empty (energy has moved down)
+    let row0Energy = 0;
     for (let x = 0; x < state.energy.width; x++) {
-      rowEnergy += state.energy.height[targetRow * state.energy.width + x];
+      row0Energy += state.energy.height[x];
     }
-
-    expect(rowEnergy).toBeGreaterThan(0);
+    expect(row0Energy).toBe(0);
   });
 
   it('drains energy and spawns foam when breaking', () => {
@@ -68,7 +86,7 @@ describe('updateWorld', () => {
 
     const initialEnergy = state.energy.height[midRow * state.energy.width];
 
-    updateWorld(state, depthData, 0.1);
+    updateWorld(state, depthData, 0, 0.1);
 
     // Energy should be drained
     const finalEnergy = state.energy.height[midRow * state.energy.width];
@@ -93,7 +111,7 @@ describe('updateWorld', () => {
       state.energy.height[midRow * state.energy.width + x] = 1.0;
     }
 
-    updateWorld(state, depthData, 0.1);
+    updateWorld(state, depthData, 0, 0.1);
 
     // No foam should spawn (height/depth = 1/30 < 0.78)
     let totalFoam = 0;
@@ -114,8 +132,12 @@ describe('updateWorld', () => {
     const initialFoam = state.foam.intensity[midIdx];
 
     // Run updates
+    const TIME_DELTA = 0.1;
+    let currTime = 0;
     for (let i = 0; i < 5; i++) {
-      updateWorld(state, depthData, 0.1);
+      const prevTime = currTime;
+      currTime += TIME_DELTA;
+      updateWorld(state, depthData, prevTime, currTime);
     }
 
     // Foam should have decayed

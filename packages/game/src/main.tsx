@@ -227,8 +227,14 @@ function update(deltaTime) {
   // Update energy field (Plan 140) even when not rendered; rendering is toggled separately
   const { oceanBottom } = getOceanBounds(canvas.height, world.shoreHeight);
   const dampingCoeff = toggles.depthDampingCoefficient ?? 0.1;
+
+  // Simulation time in seconds (world.gameTime is in ms)
+  // currTime = current simulation time, prevTime = time before this frame's delta
+  const currTime = world.gameTime / 1000;
+  const prevTime = currTime - scaledDelta;
+
   // Pass null for velocityField - will use fallback speed calculation from depth
-  updateEnergyField(world.energyField, null, world.depth, scaledDelta, {
+  updateEnergyField(world.energyField, null, world.depth, prevTime, currTime, {
     depthDampingCoefficient: dampingCoeff,
     depthDampingExponent: toggles.depthDampingExponent ?? 2.0,
   });
@@ -243,7 +249,8 @@ function update(deltaTime) {
       foam: world.layerFoamField,
     },
     world.depth,
-    scaledDelta,
+    prevTime,
+    currTime,
     {
       depthDampingCoefficient: dampingCoeff,
       depthDampingExponent: toggles.depthDampingExponent ?? 2.0,
