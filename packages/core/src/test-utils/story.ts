@@ -11,6 +11,14 @@ import { defineProgression } from './progression.js';
 import { progressionToAscii, matrixToAscii } from './asciiMatrix.js';
 import { GRID_WIDTH, GRID_HEIGHT } from './matrix.js';
 
+/** Custom render function signature for stories */
+export type StoryRenderFn = (
+  snapshot: { matrix: Float32Array; width: number; height: number; label: string },
+  ctx: CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number
+) => void;
+
 export interface StoryConfig {
   title: string;
   prose: string;
@@ -24,6 +32,8 @@ export interface StoryConfig {
   captureTimes?: number[];
   updateFn?: (field: any, prevTime: number, currTime: number) => void;
   expectedAscii: string;
+  /** Custom render function (overrides default heatmap) */
+  renderFn?: StoryRenderFn;
 }
 
 export interface Story {
@@ -31,6 +41,8 @@ export interface Story {
   title: string;
   prose: string;
   progression: ReturnType<typeof defineProgression>;
+  /** Custom render function (overrides default heatmap in viewer) */
+  renderFn?: StoryRenderFn;
 }
 
 /**
@@ -48,6 +60,7 @@ export function defineStory(config: StoryConfig): Story {
     captureTimes = [0, 1, 2, 3, 4, 5],
     updateFn,
     expectedAscii,
+    renderFn,
   } = config;
 
   // Validate initial matrix matches assertion (catches upstream layer drift)
@@ -85,7 +98,7 @@ export function defineStory(config: StoryConfig): Story {
     );
   }
 
-  return { title, prose, progression };
+  return { title, prose, progression, renderFn };
 }
 
 /**

@@ -83,11 +83,16 @@ function StoryRenderer({ story, storyId }: { story: Story | undefined; storyId: 
     w: number,
     h: number
   ) => {
-    // Auto-scale: find max value in matrix for this snapshot
-    const maxValue = Math.max(...snap.matrix) || 1;
-    renderEnergyMatrix(ctx, snap.matrix, snap.width, snap.height, w, h, {
-      scaleMax: maxValue,
-    });
+    // Use custom renderFn if provided, otherwise default to energy heatmap
+    if (story.renderFn) {
+      story.renderFn(snap, ctx, w, h);
+    } else {
+      // Auto-scale: find max value in matrix for this snapshot
+      const maxValue = Math.max(...snap.matrix) || 1;
+      renderEnergyMatrix(ctx, snap.matrix, snap.width, snap.height, w, h, {
+        scaleMax: maxValue,
+      });
+    }
   };
 
   return (

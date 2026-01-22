@@ -36,5 +36,5 @@ export {
 export type { StripDefinition } from './strip.js';
 export { createStrip } from './strip.js';
 
-export type { Story, StoryConfig } from './story.js';
+export type { Story, StoryConfig, StoryRenderFn } from './story.js';
 export { defineStory } from './story.js';
