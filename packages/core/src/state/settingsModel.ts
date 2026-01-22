@@ -9,14 +9,12 @@
  */
 
 // Current schema version - increment when adding/removing/changing settings
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2;
 
 // Settings schema with types and defaults
 export const SETTINGS_SCHEMA = {
   // Display toggles
   showBathymetry: { type: 'boolean', default: false, hotkey: 'b' },
-  showSetWaves: { type: 'boolean', default: true, hotkey: 's' },
-  showBackgroundWaves: { type: 'boolean', default: true, hotkey: 'g' },
   showFoamZones: { type: 'boolean', default: true, hotkey: 'f' },
   showFoamSamples: { type: 'boolean', default: false, hotkey: 'd' },
   showPlayer: { type: 'boolean', default: false, hotkey: 'p' },
@@ -29,6 +27,7 @@ export const SETTINGS_SCHEMA = {
 
   // Energy field
   showEnergyField: { type: 'boolean', default: false, hotkey: 'e' },
+  useLayerFoam: { type: 'boolean', default: false, hotkey: 'l' }, // Phase 5: layer-based foam
   depthDampingCoefficient: { type: 'number', default: 0.1 },
   depthDampingExponent: { type: 'number', default: 2.0 },
 

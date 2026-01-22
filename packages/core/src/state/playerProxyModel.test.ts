@@ -48,9 +48,10 @@ describe('playerProxyModel', () => {
 
     it('returns intensity at occupied cell', () => {
       const { foam: foamGrid } = createFoamGrids();
-      // Screen center (400, 300) maps to grid position (29.5, 19.5) due to bilinear sampling
+      // Screen center (400, 300) maps to grid position based on grid dimensions
+      // With 60x80 grid: gx = 0.5 * 59 = 29.5, gy = 0.5 * 79 = 39.5
       // Set all 4 neighboring cells to the same value so interpolation returns that value
-      const cy = 19;
+      const cy = 39;
       const cx = 29;
       foamGrid.data[cy * foamGrid.width + cx] = 0.8; // (29, 19)
       foamGrid.data[cy * foamGrid.width + (cx + 1)] = 0.8; // (30, 19)

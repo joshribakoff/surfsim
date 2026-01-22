@@ -11,9 +11,12 @@
 import { createWave } from './waveModel.js';
 import { createSetLullState, DEFAULT_CONFIG } from './setLullModel.js';
 import { createInitialBackgroundState, BACKGROUND_CONFIG } from './backgroundWaveModel.js';
-import { createEnergyField, FIELD_HEIGHT, FIELD_WIDTH } from './energyFieldModel.js';
-import { DEFAULT_BATHYMETRY } from './bathymetryModel.js';
+import { createEnergyField, FIELD_HEIGHT, FIELD_WIDTH } from '../model/02-energy/index.js';
+import { createDepthData } from '../model/01-depth/model.js';
 import { createFoamGrids } from './foamGridModel.js';
+import { createVelocityField } from '../model/03-velocity/model.js';
+import { createHeightField } from '../model/04-height/model.js';
+import { createFoamField } from '../model/05-foam/model.js';
 
 // Event types
 export const EventType = {
@@ -79,8 +82,10 @@ export function createInitialState() {
     backgroundConfig: BACKGROUND_CONFIG,
     backgroundState: createInitialBackgroundState(BACKGROUND_CONFIG),
 
-    // Bathymetry
-    bathymetry: DEFAULT_BATHYMETRY,
+    // Depth model (Layer 01) - Float32Array of depth values in meters
+    depth: createDepthData(30, FIELD_WIDTH, FIELD_HEIGHT),
+    depthWidth: FIELD_WIDTH,
+    depthHeight: FIELD_HEIGHT,
 
     // Player
     playerProxy: null,
@@ -91,11 +96,14 @@ export function createInitialState() {
     // Energy field
     energyField: createEnergyField(),
 
+    // Layer fields (Plan 160 - layer architecture)
+    velocityField: createVelocityField(),
+    heightField: createHeightField(),
+    layerFoamField: createFoamField(), // Distinct from legacy foamGrid
+
     // UI toggles
     toggles: {
       showBathymetry: false,
-      showSetWaves: true,
-      showBackgroundWaves: true,
       showFoamZones: true,
       showFoamSamples: false,
       showPlayer: false,
@@ -104,6 +112,7 @@ export function createInitialState() {
       showFoamOptionB: false,
       showFoamOptionC: false,
       showEnergyField: false,
+      useLayerFoam: false, // Phase 5: switch to layer-based foam (Plan 160)
       depthDampingCoefficient: 0.1,
       depthDampingExponent: 2.0,
     },

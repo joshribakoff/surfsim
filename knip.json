@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignore": ["**/dist/**"],
+  "ignoreDependencies": ["concurrently", "eslint-plugin-prettier", "gifenc", "pngjs"],
+  "ignoreBinaries": ["knip", "jscpd", "docker-compose"]
+}

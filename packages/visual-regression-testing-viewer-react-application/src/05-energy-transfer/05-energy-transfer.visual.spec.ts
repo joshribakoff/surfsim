@@ -1,4 +1,5 @@
-import { defineStripVisualTests } from '../visual-test-helpers';
-import { ENERGY_TRANSFER_STRIPS } from '@surf/core/src/render/energyTransferProgressions';
+// Energy transfer stories consolidated into 05-foam layer
+// These visual tests are no longer needed - transfer is part of foam dynamics
+import { defineStoryVisualTests } from '../visual-test-helpers';
 
-defineStripVisualTests(ENERGY_TRANSFER_STRIPS);
+defineStoryVisualTests('05-foam', []);

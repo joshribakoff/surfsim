@@ -1,8 +1,116 @@
 import React, { useState, useEffect, Suspense, useCallback, useRef } from 'react';
-import { ThemeContext, Theme, ThemeColors, darkColors, lightColors } from './ThemeContext';
+import {
+  ThemeContext,
+  Theme,
+  ThemeColors,
+  darkColors,
+  lightColors,
+  useTheme,
+} from './ThemeContext';
+import { Filmstrip } from './components/Filmstrip';
+import { ProgressionPlayer } from './components/ProgressionPlayer';
+import { renderEnergyMatrix } from '@surf/core/src/model/02-energy/renderer';
+import type { Story } from '@surf/core/src/test-utils';
+import ErrorBoundary from './ErrorBoundary';
 
-// Dynamically import all MDX files matching the numbered pattern
-const mdxModules = import.meta.glob<{ default: React.ComponentType }>('./**/*.mdx');
+// Dynamically import all story .ts files from model and renderers (excluding visual.spec.ts, index.ts, shared.ts)
+// Use eager: false to allow dynamic imports, and accept any exports (not just default)
+const storyModules = import.meta.glob<Record<string, unknown>>([
+  '../../../packages/core/src/model/**/stories/[0-9]*.ts',
+  '../../../packages/core/src/renderers/**/stories/[0-9]*.ts',
+]);
+
+// Helper to extract Story from a module (supports both old and new formats)
+function extractStoryFromModule(mod: Record<string, unknown>, filePath: string): Story | undefined {
+  // New format: default export is the Story
+  if (mod.default && typeof mod.default === 'object') {
+    const story = mod.default as Story;
+    if (story.title && story.prose && story.progression) {
+      return story;
+    }
+  }
+
+  // Old format: PROGRESSION_* export with metadata
+  const progressionKey = Object.keys(mod).find((k) => k.startsWith('PROGRESSION_'));
+  if (progressionKey) {
+    const progression = mod[progressionKey] as {
+      id?: string;
+      description?: string;
+      metadata?: { label?: string };
+      snapshots?: unknown[];
+    };
+
+    if (progression && progression.snapshots) {
+      // Extract title from file path if not in metadata
+      const fileName = filePath.split('/').pop()?.replace('.ts', '') || '';
+      const titleFromPath = fileName
+        .replace(/^\d+-/, '')
+        .split('-')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+
+      return {
+        id: progression.id || fileName,
+        title: progression.metadata?.label || titleFromPath,
+        prose: progression.description || '',
+        progression: progression as Story['progression'],
+      };
+    }
+  }
+
+  return undefined;
+}
+
+// Component to render a Story object
+function StoryRenderer({ story, storyId }: { story: Story | undefined; storyId: string }) {
+  const { colors } = useTheme();
+
+  // Handle unconverted stories that don't have a default export
+  if (!story) {
+    return (
+      <div style={{ padding: '2em', textAlign: 'center' }}>
+        <h1 style={{ color: colors.textMuted, marginBottom: '0.5em' }}>Story Not Converted</h1>
+        <p style={{ color: colors.textDim }}>
+          This story needs to be converted to the new defineStory format with a default export.
+        </p>
+      </div>
+    );
+  }
+
+  const renderSnapshot = (
+    snap: { matrix: Float32Array; width: number; height: number; label: string },
+    ctx: CanvasRenderingContext2D,
+    w: number,
+    h: number
+  ) => {
+    // Use custom renderFn if provided, otherwise default to energy heatmap
+    if (story.renderFn) {
+      story.renderFn(snap, ctx, w, h);
+    } else {
+      // Auto-scale: find max value in matrix for this snapshot
+      const maxValue = Math.max(...snap.matrix) || 1;
+      renderEnergyMatrix(ctx, snap.matrix, snap.width, snap.height, w, h, {
+        scaleMax: maxValue,
+      });
+    }
+  };
+
+  return (
+    <div>
+      <h1 style={{ color: colors.textBright, marginBottom: '0.5em' }}>{story.title}</h1>
+      {/* whiteSpace: pre-line allows basic formatting (newlines) without over-engineering a rich text system */}
+      <p style={{ color: colors.text, marginBottom: '1em', whiteSpace: 'pre-line' }}>
+        {story.prose}
+      </p>
+      <ProgressionPlayer snapshots={story.progression.snapshots} autoPlay={true} loop={true} />
+      <Filmstrip
+        snapshots={story.progression.snapshots}
+        renderSnapshot={renderSnapshot}
+        testId={`strip-${storyId.replace(/\//g, '-')}`}
+      />
+    </div>
+  );
+}
 
 // Tree node for hierarchical navigation
 interface TreeNode {
@@ -32,8 +140,11 @@ function buildNavigationTree(paths: string[]): TreeNode[] {
   const root: TreeNode[] = [];
 
   for (const filePath of paths) {
-    // Remove "./" prefix and ".mdx" suffix
-    const cleanPath = filePath.replace(/^\.\//, '').replace(/\.mdx$/, '');
+    // Remove prefix and ".ts" suffix, extract model/story structure
+    const cleanPath = filePath
+      .replace(/^\.\.\/\.\.\/\.\.\/packages\/core\/src\/(model|renderers)\//, '')
+      .replace(/\/stories\//, '/')
+      .replace(/\.ts$/, '');
     const segments = cleanPath.split('/');
 
     let currentLevel = root;
@@ -152,13 +263,19 @@ function getBreadcrumbs(nodes: TreeNode[], targetId: string): TreeNode[] {
 }
 
 // Build the navigation tree from discovered files
-const navigationTree = buildNavigationTree(Object.keys(mdxModules));
+const navigationTree = buildNavigationTree(Object.keys(storyModules));
 const allLeaves = getLeaves(navigationTree);
 
-// Create lazy-loaded components for each leaf
+// Create lazy-loaded components for each leaf by wrapping Story in StoryRenderer
 const pageComponents: Record<string, React.LazyExoticComponent<React.ComponentType>> = {};
 for (const leaf of allLeaves) {
-  pageComponents[leaf.id] = React.lazy(mdxModules[leaf.path]);
+  const loader = storyModules[leaf.path];
+  const filePath = leaf.path;
+  pageComponents[leaf.id] = React.lazy(async () => {
+    const mod = await loader();
+    const story = extractStoryFromModule(mod, filePath);
+    return { default: () => <StoryRenderer story={story} storyId={leaf.id} /> };
+  });
 }
 
 // Get all nodes (both leaves and branches) for page support
@@ -218,11 +335,15 @@ function AssembledPage({ node, colors }: AssembledPageProps) {
                 paddingLeft: '1.5em',
               }}
             >
-              <Suspense
-                fallback={<div style={{ color: colors.textMuted, padding: '1em' }}>Loading...</div>}
-              >
-                <LeafComponent />
-              </Suspense>
+              <ErrorBoundary storyId={leaf.id}>
+                <Suspense
+                  fallback={
+                    <div style={{ color: colors.textMuted, padding: '1em' }}>Loading...</div>
+                  }
+                >
+                  <LeafComponent />
+                </Suspense>
+              </ErrorBoundary>
             </section>
           );
         })}
@@ -362,9 +483,7 @@ function TreeNavigation({
   );
 }
 
-interface AppProps {
-  MDXWrapper?: React.ComponentType<{ children: React.ReactNode }>;
-}
+// No props needed - stories are loaded from glob
 
 interface SectionInfo {
   id: string;
@@ -403,7 +522,7 @@ function getInitialTheme(): Theme {
   return 'dark';
 }
 
-export default function App({ MDXWrapper = React.Fragment }: AppProps) {
+export default function App() {
   const [currentPage, setCurrentPage] = useState(getInitialPage);
   const [activeSection, setActiveSection] = useState('');
   const [sections, setSections] = useState<{ id: string; label: string }[]>([]);
@@ -1215,21 +1334,21 @@ export default function App({ MDXWrapper = React.Fragment }: AppProps) {
               color: colors.text,
             }}
           >
-            <Suspense
-              fallback={
-                <div style={{ color: colors.textMuted, padding: '2em', textAlign: 'center' }}>
-                  Loading...
-                </div>
-              }
-            >
-              <MDXWrapper>
+            <ErrorBoundary storyId={currentPage}>
+              <Suspense
+                fallback={
+                  <div style={{ color: colors.textMuted, padding: '2em', textAlign: 'center' }}>
+                    Loading...
+                  </div>
+                }
+              >
                 {isBranchPage(currentPage) ? (
                   <AssembledPage node={findNode(navigationTree, currentPage)!} colors={colors} />
                 ) : (
                   PageComponent && <PageComponent />
                 )}
-              </MDXWrapper>
-            </Suspense>
+              </Suspense>
+            </ErrorBoundary>
           </main>
 
           {/* Footer with keyboard hints */}
@@ -1461,30 +1580,30 @@ export default function App({ MDXWrapper = React.Fragment }: AppProps) {
             color: colors.text,
           }}
         >
-          <Suspense
-            fallback={
-              <div
-                style={{
-                  color: colors.textMuted,
-                  padding: '2em',
-                  textAlign: 'center',
-                }}
-              >
-                Loading...
-              </div>
-            }
-          >
-            <MDXWrapper>
+          <ErrorBoundary storyId={currentPage}>
+            <Suspense
+              fallback={
+                <div
+                  style={{
+                    color: colors.textMuted,
+                    padding: '2em',
+                    textAlign: 'center',
+                  }}
+                >
+                  Loading...
+                </div>
+              }
+            >
               {isBranchPage(currentPage) ? (
                 <AssembledPage node={findNode(navigationTree, currentPage)!} colors={colors} />
               ) : (
                 PageComponent && <PageComponent />
               )}
-            </MDXWrapper>
-          </Suspense>
+            </Suspense>
+          </ErrorBoundary>
         </main>
 
-        {/* Theme-aware MDX styling for normal mode */}
+        {/* Theme-aware styling for normal mode */}
         <style>{`
           /* Theme-aware text colors for MDX content in normal mode */
           main h1, main h2, main h3, main h4 {

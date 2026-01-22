@@ -13,7 +13,12 @@ import {
 import { createWave, WAVE_TYPE } from '../state/waveModel.js';
 import { createSetLullState, DEFAULT_CONFIG } from '../state/setLullModel.js';
 import { createInitialBackgroundState, BACKGROUND_CONFIG } from '../state/backgroundWaveModel.js';
-import { DEFAULT_BATHYMETRY } from '../state/bathymetryModel.js';
+import { createDepthData } from '../model/01-depth/model.js';
+
+// Test depth data
+const TEST_WIDTH = 60;
+const TEST_HEIGHT = 40;
+const testDepth = createDepthData(TEST_WIDTH, TEST_HEIGHT);
 
 describe('update/index', () => {
   describe('getOceanBounds', () => {
@@ -120,7 +125,7 @@ describe('update/index', () => {
       // At t=12000 with 10000ms travel, first wave is complete (12000 - 0 > 10000)
       // Second wave is still active (12000 - 8000 = 4000 < 10000)
 
-      const activeWaves = updateWaves(waves, 12000, 10000, 0, DEFAULT_BATHYMETRY);
+      const activeWaves = updateWaves(waves, 12000, 10000, 0, testDepth, TEST_WIDTH, TEST_HEIGHT);
 
       expect(activeWaves).toHaveLength(1);
       expect(activeWaves[0].spawnTime).toBe(8000);
@@ -131,7 +136,7 @@ describe('update/index', () => {
       const initialProgress = [...wave.progressPerX];
 
       // Update with some time passed
-      const activeWaves = updateWaves([wave], 1000, 10000, 0, DEFAULT_BATHYMETRY);
+      const activeWaves = updateWaves([wave], 1000, 10000, 0, testDepth, TEST_WIDTH, TEST_HEIGHT);
 
       // Progress should have changed
       expect(activeWaves[0].progressPerX).not.toEqual(initialProgress);

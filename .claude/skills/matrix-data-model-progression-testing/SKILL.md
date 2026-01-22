@@ -81,22 +81,16 @@ import {
   matrixToAscii,
   asciiToMatrix,
   progressionToAscii,
-  asciiToProgression,
-  matricesMatchAscii,
   valueToChar,
   charToValue,
 } from '../test-utils/asciiMatrix';
 
-// Single matrix
-matrixToAscii([[1.0, 0.5], [0.0, 0.2]])  // → "FA\n-2"
-asciiToMatrix("FA\n-2")                   // → [[1.0, 0.5], [0.0, 0.2]]
+// Single matrix (Float32Array with dimensions)
+matrixToAscii(data, width, height)  // → "FA\n-2"
+asciiToMatrix("FA\n-2")             // → { data: Float32Array, width, height }
 
 // Multi-frame progression
-progressionToAscii(snapshots)             // → side-by-side frames with headers
-asciiToProgression(asciiString)           // → array of {time, matrix}
-
-// Comparison (tolerant to ASCII precision)
-matricesMatchAscii(actual, expected)      // → true if same when encoded
+progressionToAscii(snapshots)       // → side-by-side frames with headers
 ```
 
 ## defineProgression() Framework

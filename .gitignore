@@ -19,3 +19,8 @@ dist-stories
 .npm/
 .config/
 .nx/
+
+# Generated reports
+jscpd-report/
+.ai/
+tests/visual/results/.last-run.json

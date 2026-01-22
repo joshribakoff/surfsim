@@ -1,4 +1,4 @@
-import { defineStripVisualTests } from '../visual-test-helpers';
-import { SHOALING_STRIPS } from '@surf/core/src/render/shoalingProgressions';
+import { defineStoryVisualTests } from '../visual-test-helpers';
 
-defineStripVisualTests(SHOALING_STRIPS);
+// ID matches the file path structure: layerPrefix/storyFileName -> 04-height/01-shoaling
+defineStoryVisualTests('04-height', [['01-shoaling', { id: '04-height/01-shoaling' }]]);
