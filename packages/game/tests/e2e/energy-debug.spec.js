@@ -43,11 +43,12 @@ test('energy conservation with damping=0', async ({ page }) => {
   if (maxValues.length > 2) {
     const first = maxValues[0];
     const last = maxValues[maxValues.length - 1];
-    const decayPercent = (((first - last) / first) * 100).toFixed(1);
+    const decayPercent = ((first - last) / first) * 100;
+    const perSecondDecay = decayPercent / maxValues.length;
     console.log(`First max: ${first} kJ`);
     console.log(`Last max: ${last} kJ`);
-    console.log(`Decay: ${decayPercent}% over ${maxValues.length} seconds`);
-    console.log(`Per-second decay: ${(decayPercent / maxValues.length).toFixed(1)}%`);
+    console.log(`Decay: ${decayPercent.toFixed(1)}% over ${maxValues.length} seconds`);
+    console.log(`Per-second decay: ${perSecondDecay.toFixed(1)}%`);
   }
 
   // This test is for debugging - always pass but show output

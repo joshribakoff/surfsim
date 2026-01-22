@@ -390,7 +390,7 @@ function draw() {
     const logKey = Math.floor(world.gameTime);
     if (logKey !== (window as any).__lastEnergyLog) {
       (window as any).__lastEnergyLog = logKey;
-      const sampleValues = Array.from(world.energyField.height.slice(0, 10)).map((v) =>
+      const sampleValues = Array.from(world.energyField.height.slice(0, 10)).map((v: number) =>
         v.toFixed(1)
       );
       const dampVal = toggles.depthDampingCoefficient ?? 0.1;
