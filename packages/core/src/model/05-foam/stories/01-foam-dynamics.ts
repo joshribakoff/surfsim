@@ -48,7 +48,8 @@ All three effects combined in updateFoamField().`,
     ----------
   `,
   captureTimes: [0, 1, 2, 3, 4, 5],
-  updateFn: (model, dt) => {
+  updateFn: (model, prevTime, currTime) => {
+    const dt = currTime - prevTime;
     updateFoamField({ intensity: model, width: FOAM_WIDTH, gridHeight: FOAM_HEIGHT }, dt, {
       decayRate: 0.35,
       diffusionRate: 0.15,

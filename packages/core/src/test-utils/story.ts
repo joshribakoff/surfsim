@@ -98,7 +98,9 @@ export function defineStory(config: StoryConfig): Story {
     );
   }
 
-  return { title, prose, progression, renderFn };
+  // Derive ID from progression (which gets it from title)
+  const id = progression.id || title;
+  return { id, title, prose, progression, renderFn };
 }
 
 /**
