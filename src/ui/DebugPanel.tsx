@@ -1,5 +1,25 @@
+import { useState, useEffect } from 'react';
 import './DebugPanel.css';
 import { Tooltip } from 'react-tooltip';
+
+const DEBUG_PANEL_STORAGE_KEY = 'debugPanelOpen';
+
+function loadPanelState(): boolean {
+  try {
+    const stored = localStorage.getItem(DEBUG_PANEL_STORAGE_KEY);
+    return stored === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function savePanelState(isOpen: boolean): void {
+  try {
+    localStorage.setItem(DEBUG_PANEL_STORAGE_KEY, String(isOpen));
+  } catch {
+    // Ignore storage errors
+  }
+}
 
 // Pure component - receives all data as props, rendered from game loop via requestAnimationFrame
 export function DebugPanel({
@@ -19,6 +39,44 @@ export function DebugPanel({
   aiMode,
   onAIModeChange,
 }) {
+  const [isOpen, setIsOpen] = useState(loadPanelState);
+
+  // Keyboard handler for backtick toggle
+  useEffect(() => {
+    const handleKeydown = (e: KeyboardEvent) => {
+      if (e.key === '`') {
+        setIsOpen((prev) => {
+          const next = !prev;
+          savePanelState(next);
+          return next;
+        });
+      }
+    };
+    document.addEventListener('keydown', handleKeydown);
+    return () => document.removeEventListener('keydown', handleKeydown);
+  }, []);
+
+  const handleToggleClick = () => {
+    setIsOpen((prev) => {
+      const next = !prev;
+      savePanelState(next);
+      return next;
+    });
+  };
+
+  // Collapsed state - show toggle button only
+  if (!isOpen) {
+    return (
+      <button
+        className="debug-panel-toggle"
+        onClick={handleToggleClick}
+        title="Open Debug Panel (`)"
+      >
+        Debug
+      </button>
+    );
+  }
+
   const sls = setLullState;
   const setWaves = displayWaves.filter((w) => w.wave.type === 'set');
   const bgWaves = displayWaves.filter((w) => w.wave.type === 'background');
@@ -44,212 +102,219 @@ export function DebugPanel({
     setDuration > 0 ? Math.min(Math.max(elapsedInState / setDuration, 0), 1) : 0;
 
   return (
-    <div className="debug-panel">
-      <FPSCounter fps={fps} />
-      <Tooltip id="debug-tooltip" place="left" />
-      <Section title="View Layers">
-        <p className="layer-order-note">
-          Order: source → transfer → foam (top to bottom here; back to front on canvas).
-        </p>
-        <Toggle
-          label="Bathymetry"
-          checked={toggles.showBathymetry}
-          onChange={() => onToggle('showBathymetry')}
-          hotkey="B"
-        />
-        <Toggle
-          label="Set Waves"
-          checked={toggles.showSetWaves}
-          onChange={() => onToggle('showSetWaves')}
-          hotkey="S"
-        />
-        <Toggle
-          label="Background"
-          checked={toggles.showBackgroundWaves}
-          onChange={() => onToggle('showBackgroundWaves')}
-          hotkey="G"
-        />
-        <Toggle
-          label="Energy Field (source)"
-          checked={toggles.showEnergyField}
-          onChange={() => onToggle('showEnergyField')}
-          hotkey="E"
-        />
-        <Toggle
-          label="Energy Transfer Samples"
-          checked={toggles.showFoamSamples}
-          onChange={() => onToggle('showFoamSamples')}
-          hotkey="D"
-        />
-        <Toggle
-          label="Energy Transfer (contours)"
-          checked={toggles.showFoamZones}
-          onChange={() => onToggle('showFoamZones')}
-          hotkey="F"
-        />
-        <Toggle
-          label="Player"
-          checked={toggles.showPlayer}
-          onChange={() => onToggle('showPlayer')}
-          hotkey="P"
-        />
-        {toggles.showPlayer && (
+    <div className="debug-panel debug-panel-open">
+      <div className="debug-panel-header">
+        <FPSCounter fps={fps} />
+        <button className="debug-panel-close" onClick={handleToggleClick} title="Close (`)">
+          x
+        </button>
+      </div>
+      <div className="debug-panel-content">
+        <Section title="View Layers">
+          <p className="layer-order-note">
+            Order: source → transfer → foam (top to bottom here; back to front on canvas).
+          </p>
           <Toggle
-            label="AI Player"
-            checked={toggles.showAIPlayer}
-            onChange={() => onToggle('showAIPlayer')}
-            hotkey="A"
+            label="Bathymetry"
+            checked={toggles.showBathymetry}
+            onChange={() => onToggle('showBathymetry')}
+            hotkey="B"
           />
-        )}
-        {toggles.showPlayer && toggles.showAIPlayer && (
           <Toggle
-            label="AI Mode"
-            checked={true}
-            onChange={onAIModeChange}
-            hotkey="M"
-            text={aiMode}
+            label="Set Waves"
+            checked={toggles.showSetWaves}
+            onChange={() => onToggle('showSetWaves')}
+            hotkey="S"
           />
-        )}
-      </Section>
-
-      <Section title="Foam Dispersion">
-        <Toggle
-          label="Option A (expand)"
-          checked={toggles.showFoamOptionA}
-          onChange={() => onToggle('showFoamOptionA')}
-          hotkey="1"
-        />
-        <Toggle
-          label="Option B (blur)"
-          checked={toggles.showFoamOptionB}
-          onChange={() => onToggle('showFoamOptionB')}
-          hotkey="2"
-        />
-        <Toggle
-          label="Option C (radius)"
-          checked={toggles.showFoamOptionC}
-          onChange={() => onToggle('showFoamOptionC')}
-          hotkey="3"
-        />
-      </Section>
-
-      <Section title="Playback">
-        <Select
-          label="Speed"
-          value={timeScale}
-          options={[1, 2, 4, 8]}
-          onChange={onTimeScaleChange}
-          hotkey="T"
-        />
-        <Slider
-          label="Depth Damping"
-          tooltip="Energy decay in shallow water. Higher = faster fade before shore."
-          value={toggles.depthDampingCoefficient}
-          min={0}
-          max={0.2}
-          step={0.01}
-          onChange={(v) => onSettingChange('depthDampingCoefficient', v)}
-        />
-        <Slider
-          label="Damping Exponent"
-          tooltip="How sharply decay ramps as depth→0 (higher = more cliff near shore)."
-          value={toggles.depthDampingExponent}
-          min={1}
-          max={4}
-          step={0.1}
-          onChange={(v) => onSettingChange('depthDampingExponent', v)}
-        />
-      </Section>
-
-      <Section title="Set/Lull State">
-        <ReadOnly label="State" value={sls.setState} />
-        <ReadOnly label="Waves" value={`${sls.wavesSpawned}/${sls.currentSetWaves}`} />
-        {sls.setState === 'LULL' ? (
-          <CountdownReadOnly
-            label="Lull ends in"
-            remaining={stateTimeRemaining}
-            total={setDuration}
-            progress={setTimerProgress}
-            color="#e8a644"
+          <Toggle
+            label="Background"
+            checked={toggles.showBackgroundWaves}
+            onChange={() => onToggle('showBackgroundWaves')}
+            hotkey="G"
           />
-        ) : (
-          <ReadOnly label="Waves left" value={sls.currentSetWaves - sls.wavesSpawned} />
-        )}
-        <CountdownReadOnly
-          label="Next wave in"
-          remaining={waveTimeRemaining}
-          total={nextWaveTime}
-          progress={waveTimerProgress}
-          color="#4a90b8"
-        />
-      </Section>
-
-      <Section title="Wave Status">
-        <ReadOnly label="Set Waves" value={setWaves.length} />
-        <ReadOnly label="Background" value={bgWaves.length} />
-        <ReadOnly label="Energy Transfer Cells" value={energyTransferCount} />
-        <ReadOnly label="Foam Cells" value={foamCount} />
-      </Section>
-
-      {setWaves.length > 0 && (
-        <Section title="Set Wave Details">
-          {setWaves.map(({ wave, progress, travelDuration }) => {
-            const timeToShore = (((1 - progress) * travelDuration) / 1000).toFixed(1);
-            const ampPercent = Math.round(wave.amplitude * 100);
-            return (
-              <div key={wave.id} className="wave-item">
-                <span className="wave-label">
-                  {ampPercent}% amp, {timeToShore}s
-                </span>
-                <div className="wave-progress-bar">
-                  <div
-                    className="wave-progress-fill"
-                    style={{ width: `${(1 - progress) * 100}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
+          <Toggle
+            label="Energy Field (source)"
+            checked={toggles.showEnergyField}
+            onChange={() => onToggle('showEnergyField')}
+            hotkey="E"
+          />
+          <Toggle
+            label="Energy Transfer Samples"
+            checked={toggles.showFoamSamples}
+            onChange={() => onToggle('showFoamSamples')}
+            hotkey="D"
+          />
+          <Toggle
+            label="Energy Transfer (contours)"
+            checked={toggles.showFoamZones}
+            onChange={() => onToggle('showFoamZones')}
+            hotkey="F"
+          />
+          <Toggle
+            label="Player"
+            checked={toggles.showPlayer}
+            onChange={() => onToggle('showPlayer')}
+            hotkey="P"
+          />
+          {toggles.showPlayer && (
+            <Toggle
+              label="AI Player"
+              checked={toggles.showAIPlayer}
+              onChange={() => onToggle('showAIPlayer')}
+              hotkey="A"
+            />
+          )}
+          {toggles.showPlayer && toggles.showAIPlayer && (
+            <Toggle
+              label="AI Mode"
+              checked={true}
+              onChange={onAIModeChange}
+              hotkey="M"
+              text={aiMode}
+            />
+          )}
         </Section>
-      )}
 
-      {toggles.showPlayer && playerConfig && (
-        <Section title="Player Tuning">
-          <Slider
-            label="Water Speed"
-            tooltip="Target paddle speed in calm water (px/s). This is the velocity you'll reach when holding a direction."
-            value={playerConfig.waterSpeed}
-            min={10}
-            max={60}
-            onChange={(v) => onPlayerConfigChange('waterSpeed', v)}
+        <Section title="Foam Dispersion">
+          <Toggle
+            label="Option A (expand)"
+            checked={toggles.showFoamOptionA}
+            onChange={() => onToggle('showFoamOptionA')}
+            hotkey="1"
+          />
+          <Toggle
+            label="Option B (blur)"
+            checked={toggles.showFoamOptionB}
+            onChange={() => onToggle('showFoamOptionB')}
+            hotkey="2"
+          />
+          <Toggle
+            label="Option C (radius)"
+            checked={toggles.showFoamOptionC}
+            onChange={() => onToggle('showFoamOptionC')}
+            hotkey="3"
+          />
+        </Section>
+
+        <Section title="Playback">
+          <Select
+            label="Speed"
+            value={timeScale}
+            options={[1, 2, 4, 8]}
+            onChange={onTimeScaleChange}
+            hotkey="T"
           />
           <Slider
-            label="Foam Speed"
-            tooltip="Target paddle speed when in whitewater (px/s). Lower than water speed because turbulence slows you down."
-            value={playerConfig.foamSpeed}
-            min={10}
-            max={60}
-            onChange={(v) => onPlayerConfigChange('foamSpeed', v)}
-          />
-          <Slider
-            label="Push Force"
-            tooltip="Velocity added toward shore when in foam (px/s). At max intensity foam, this is how fast you drift shoreward."
-            value={playerConfig.maxPushForce}
-            min={10}
-            max={100}
-            onChange={(v) => onPlayerConfigChange('maxPushForce', v)}
-          />
-          <Slider
-            label="Foam Penalty"
-            tooltip="Extra speed reduction in foam (%). Combined with lower Foam Speed, makes whitewater feel sluggish."
-            value={Math.round(playerConfig.foamSpeedPenalty * 100)}
+            label="Depth Damping"
+            tooltip="Energy decay in shallow water. Higher = faster fade before shore."
+            value={toggles.depthDampingCoefficient}
             min={0}
-            max={80}
-            suffix="%"
-            onChange={(v) => onPlayerConfigChange('foamSpeedPenalty', v / 100)}
+            max={0.2}
+            step={0.01}
+            onChange={(v) => onSettingChange('depthDampingCoefficient', v)}
+          />
+          <Slider
+            label="Damping Exponent"
+            tooltip="How sharply decay ramps as depth→0 (higher = more cliff near shore)."
+            value={toggles.depthDampingExponent}
+            min={1}
+            max={4}
+            step={0.1}
+            onChange={(v) => onSettingChange('depthDampingExponent', v)}
           />
         </Section>
-      )}
+
+        <Section title="Set/Lull State">
+          <ReadOnly label="State" value={sls.setState} />
+          <ReadOnly label="Waves" value={`${sls.wavesSpawned}/${sls.currentSetWaves}`} />
+          {sls.setState === 'LULL' ? (
+            <CountdownReadOnly
+              label="Lull ends in"
+              remaining={stateTimeRemaining}
+              total={setDuration}
+              progress={setTimerProgress}
+              color="#e8a644"
+            />
+          ) : (
+            <ReadOnly label="Waves left" value={sls.currentSetWaves - sls.wavesSpawned} />
+          )}
+          <CountdownReadOnly
+            label="Next wave in"
+            remaining={waveTimeRemaining}
+            total={nextWaveTime}
+            progress={waveTimerProgress}
+            color="#4a90b8"
+          />
+        </Section>
+
+        <Section title="Wave Status">
+          <ReadOnly label="Set Waves" value={setWaves.length} />
+          <ReadOnly label="Background" value={bgWaves.length} />
+          <ReadOnly label="Energy Transfer Cells" value={energyTransferCount} />
+          <ReadOnly label="Foam Cells" value={foamCount} />
+        </Section>
+
+        {setWaves.length > 0 && (
+          <Section title="Set Wave Details">
+            {setWaves.map(({ wave, progress, travelDuration }) => {
+              const timeToShore = (((1 - progress) * travelDuration) / 1000).toFixed(1);
+              const ampPercent = Math.round(wave.amplitude * 100);
+              return (
+                <div key={wave.id} className="wave-item">
+                  <span className="wave-label">
+                    {ampPercent}% amp, {timeToShore}s
+                  </span>
+                  <div className="wave-progress-bar">
+                    <div
+                      className="wave-progress-fill"
+                      style={{ width: `${(1 - progress) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </Section>
+        )}
+
+        {toggles.showPlayer && playerConfig && (
+          <Section title="Player Tuning">
+            <Slider
+              label="Water Speed"
+              tooltip="Target paddle speed in calm water (px/s). This is the velocity you'll reach when holding a direction."
+              value={playerConfig.waterSpeed}
+              min={10}
+              max={60}
+              onChange={(v) => onPlayerConfigChange('waterSpeed', v)}
+            />
+            <Slider
+              label="Foam Speed"
+              tooltip="Target paddle speed when in whitewater (px/s). Lower than water speed because turbulence slows you down."
+              value={playerConfig.foamSpeed}
+              min={10}
+              max={60}
+              onChange={(v) => onPlayerConfigChange('foamSpeed', v)}
+            />
+            <Slider
+              label="Push Force"
+              tooltip="Velocity added toward shore when in foam (px/s). At max intensity foam, this is how fast you drift shoreward."
+              value={playerConfig.maxPushForce}
+              min={10}
+              max={100}
+              onChange={(v) => onPlayerConfigChange('maxPushForce', v)}
+            />
+            <Slider
+              label="Foam Penalty"
+              tooltip="Extra speed reduction in foam (%). Combined with lower Foam Speed, makes whitewater feel sluggish."
+              value={Math.round(playerConfig.foamSpeedPenalty * 100)}
+              min={0}
+              max={80}
+              suffix="%"
+              onChange={(v) => onPlayerConfigChange('foamSpeedPenalty', v / 100)}
+            />
+          </Section>
+        )}
+      </div>
+      <Tooltip id="debug-tooltip" place="left" />
     </div>
   );
 }
